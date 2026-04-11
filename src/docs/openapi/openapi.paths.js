@@ -573,7 +573,7 @@ export const OPENAPI_PATH_DEFINITIONS = {
   [OPENAPI_PATHS.ORGANIZATION_CLIENTS]: {
     get: {
       summary: "List organization OAuth clients",
-      tags: [OPENAPI_TAGS.ORGANIZATIONS],
+      tags: [OPENAPI_TAGS.CLIENTS],
       security: OPENAPI_SECURITY.AUTHENTICATED,
       parameters: [
         {
@@ -600,7 +600,7 @@ export const OPENAPI_PATH_DEFINITIONS = {
     },
     post: {
       summary: "Create organization OAuth client",
-      tags: [OPENAPI_TAGS.ORGANIZATIONS],
+      tags: [OPENAPI_TAGS.CLIENTS],
       security: OPENAPI_SECURITY.AUTHENTICATED,
       parameters: [
         {
@@ -641,7 +641,7 @@ export const OPENAPI_PATH_DEFINITIONS = {
   [OPENAPI_PATHS.ORGANIZATION_CLIENT_BY_ID]: {
     get: {
       summary: "Get organization OAuth client details",
-      tags: [OPENAPI_TAGS.ORGANIZATIONS],
+      tags: [OPENAPI_TAGS.CLIENTS],
       security: OPENAPI_SECURITY.AUTHENTICATED,
       parameters: [
         {
@@ -674,7 +674,7 @@ export const OPENAPI_PATH_DEFINITIONS = {
     },
     patch: {
       summary: "Update organization OAuth client",
-      tags: [OPENAPI_TAGS.ORGANIZATIONS],
+      tags: [OPENAPI_TAGS.CLIENTS],
       security: OPENAPI_SECURITY.AUTHENTICATED,
       parameters: [
         {
@@ -719,7 +719,7 @@ export const OPENAPI_PATH_DEFINITIONS = {
     },
     delete: {
       summary: "Delete organization OAuth client",
-      tags: [OPENAPI_TAGS.ORGANIZATIONS],
+      tags: [OPENAPI_TAGS.CLIENTS],
       security: OPENAPI_SECURITY.AUTHENTICATED,
       parameters: [
         {
@@ -754,7 +754,7 @@ export const OPENAPI_PATH_DEFINITIONS = {
   [OPENAPI_PATHS.ORGANIZATION_CLIENT_PROVIDERS]: {
     post: {
       summary: "Configure provider credentials for organization client",
-      tags: [OPENAPI_TAGS.ORGANIZATIONS],
+      tags: [OPENAPI_TAGS.CLIENTS],
       security: OPENAPI_SECURITY.AUTHENTICATED,
       parameters: [
         {
@@ -804,7 +804,7 @@ export const OPENAPI_PATH_DEFINITIONS = {
   [OPENAPI_PATHS.ORGANIZATION_CLIENT_PROVIDER_BY_ID]: {
     patch: {
       summary: "Update provider credentials for organization client",
-      tags: [OPENAPI_TAGS.ORGANIZATIONS],
+      tags: [OPENAPI_TAGS.CLIENTS],
       security: OPENAPI_SECURITY.AUTHENTICATED,
       parameters: [
         {
@@ -857,7 +857,7 @@ export const OPENAPI_PATH_DEFINITIONS = {
     },
     delete: {
       summary: "Remove provider from organization client",
-      tags: [OPENAPI_TAGS.ORGANIZATIONS],
+      tags: [OPENAPI_TAGS.CLIENTS],
       security: OPENAPI_SECURITY.AUTHENTICATED,
       parameters: [
         {

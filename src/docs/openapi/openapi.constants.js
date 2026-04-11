@@ -2,6 +2,7 @@ export const OPENAPI_TAGS = {
   AUTH: "Auth",
   USERS: "Users",
   ORGANIZATIONS: "Organizations",
+  CLIENTS: "Clients",
   OAUTH: "OAuth",
 };
 

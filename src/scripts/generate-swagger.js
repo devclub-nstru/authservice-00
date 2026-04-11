@@ -41,7 +41,11 @@ const spec = {
     { name: OPENAPI_TAGS.USERS, description: "User profile operations" },
     {
       name: OPENAPI_TAGS.ORGANIZATIONS,
-      description: "Organization management and collaborator invites",
+      description: "Organization management, members, and invites",
+    },
+    {
+      name: OPENAPI_TAGS.CLIENTS,
+      description: "Organization OAuth client and provider configuration",
     },
     { name: OPENAPI_TAGS.OAUTH, description: "OAuth provider integrations" },
   ],

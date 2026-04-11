@@ -1050,7 +1050,7 @@
       "get": {
         "summary": "List organization OAuth clients",
         "tags": [
-          "Organizations"
+          "Clients"
         ],
         "security": [
           {
@@ -1104,7 +1104,7 @@
       "post": {
         "summary": "Create organization OAuth client",
         "tags": [
-          "Organizations"
+          "Clients"
         ],
         "security": [
           {
@@ -1173,7 +1173,7 @@
       "get": {
         "summary": "Get organization OAuth client details",
         "tags": [
-          "Organizations"
+          "Clients"
         ],
         "security": [
           {
@@ -1233,7 +1233,7 @@
       "patch": {
         "summary": "Update organization OAuth client",
         "tags": [
-          "Organizations"
+          "Clients"
         ],
         "security": [
           {
@@ -1309,7 +1309,7 @@
       "delete": {
         "summary": "Delete organization OAuth client",
         "tags": [
-          "Organizations"
+          "Clients"
         ],
         "security": [
           {
@@ -1371,7 +1371,7 @@
       "post": {
         "summary": "Configure provider credentials for organization client",
         "tags": [
-          "Organizations"
+          "Clients"
         ],
         "security": [
           {
@@ -1452,7 +1452,7 @@
       "patch": {
         "summary": "Update provider credentials for organization client",
         "tags": [
-          "Organizations"
+          "Clients"
         ],
         "security": [
           {
@@ -1540,7 +1540,7 @@
       "delete": {
         "summary": "Remove provider from organization client",
         "tags": [
-          "Organizations"
+          "Clients"
         ],
         "security": [
           {
@@ -2465,7 +2465,11 @@
     },
     {
       "name": "Organizations",
-      "description": "Organization management and collaborator invites"
+      "description": "Organization management, members, and invites"
+    },
+    {
+      "name": "Clients",
+      "description": "Organization OAuth client and provider configuration"
     },
     {
       "name": "OAuth",
