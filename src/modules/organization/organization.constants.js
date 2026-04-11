@@ -8,6 +8,11 @@ export const ORGANIZATION_ROLES = {
 
 export const ORGANIZATION_ROLE_VALUES = Object.values(ORGANIZATION_ROLES);
 
+export const ORGANIZATION_NON_OWNER_ROLE_VALUES = [
+  ORGANIZATION_ROLES.ADMIN,
+  ORGANIZATION_ROLES.MEMBER,
+];
+
 export const ORGANIZATION_NAME_LIMITS = {
   MIN: 2,
   MAX: 255,
@@ -40,6 +45,16 @@ export const ORGANIZATION_ERRORS = {
   INVITE_ALREADY_REVOKED: "Invite has already been revoked",
   ALREADY_COLLABORATOR: "User is already a collaborator",
   OWNER_ROLE_REQUIRED: "Only an owner can perform this action",
+  MEMBER_NOT_FOUND: "Organization member not found",
+  OWNER_TRANSFER_REQUIRED:
+    "Use transfer ownership endpoint to assign owner role",
+  OWNER_SELF_ROLE_CHANGE_NOT_ALLOWED:
+    "Owners cannot change their own role directly",
+  LAST_OWNER_ROLE_CHANGE_NOT_ALLOWED:
+    "Cannot demote the last owner in an organization",
+  TRANSFER_TARGET_ALREADY_OWNER: "Target user is already an owner",
+  TRANSFER_TARGET_SAME_AS_ACTOR:
+    "Ownership transfer target must be a different user",
 };
 
 export const ORGANIZATION_MESSAGES = {
@@ -47,4 +62,6 @@ export const ORGANIZATION_MESSAGES = {
   INVITE_ACCEPTED: "Invite accepted",
   INVITE_REVOKED: "Invite revoked",
   ORGANIZATION_DELETED: "Organization deleted",
+  MEMBER_ROLE_UPDATED: "Organization member role updated",
+  OWNERSHIP_TRANSFERRED: "Organization ownership transferred",
 };

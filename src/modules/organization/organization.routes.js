@@ -11,6 +11,8 @@ import {
   listOrganizationsHandler,
   acceptOrganizationInviteHandler,
   revokeOrganizationInviteHandler,
+  transferOrganizationOwnershipHandler,
+  updateOrganizationMemberRoleHandler,
   updateOrganizationHandler,
 } from "./organization.controller.js";
 import {
@@ -53,6 +55,18 @@ router.delete(
   requireAuth,
   organizationMutationLimiter,
   asyncHandler(deleteOrganizationHandler),
+);
+router.patch(
+  "/:orgId/members/:userId/role",
+  requireAuth,
+  organizationMutationLimiter,
+  asyncHandler(updateOrganizationMemberRoleHandler),
+);
+router.post(
+  "/:orgId/transfer-ownership",
+  requireAuth,
+  organizationMutationLimiter,
+  asyncHandler(transferOrganizationOwnershipHandler),
 );
 
 router.post(

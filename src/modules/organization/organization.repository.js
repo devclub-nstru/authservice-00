@@ -6,6 +6,7 @@ import {
   organizations,
   users,
 } from "../../db/schemas/index.js";
+import { ORGANIZATION_ROLES } from "./organization.constants.js";
 
 export const createOrganization = async (payload, tx = db) => {
   const [created] = await tx.insert(organizations).values(payload).returning();
@@ -86,6 +87,40 @@ export const findOrganizationMember = async (orgId, userId, tx = db) => {
     .limit(1);
 
   return member || null;
+};
+
+export const updateOrganizationMemberRole = async (
+  orgId,
+  userId,
+  role,
+  tx = db,
+) => {
+  const [updated] = await tx
+    .update(organizationMembers)
+    .set({ role, updatedAt: new Date() })
+    .where(
+      and(
+        eq(organizationMembers.orgId, orgId),
+        eq(organizationMembers.userId, userId),
+      ),
+    )
+    .returning();
+
+  return updated || null;
+};
+
+export const countOrganizationOwners = async (orgId, tx = db) => {
+  const [result] = await tx
+    .select({ count: sql`count(*)::int` })
+    .from(organizationMembers)
+    .where(
+      and(
+        eq(organizationMembers.orgId, orgId),
+        eq(organizationMembers.role, ORGANIZATION_ROLES.OWNER),
+      ),
+    );
+
+  return Number(result?.count || 0);
 };
 
 export const listOrganizationMembers = async (orgId, tx = db) => {

@@ -32,6 +32,8 @@ export const OPENAPI_DESCRIPTIONS = {
   ORGANIZATION_INVITE_DETAILS: "Organization invite details",
   ORGANIZATION_INVITE_ACCEPTED: "Invite accepted",
   ORGANIZATION_INVITE_REVOKED: "Invite revoked",
+  ORGANIZATION_MEMBER_ROLE_UPDATED: "Organization member role updated",
+  ORGANIZATION_OWNERSHIP_TRANSFERRED: "Organization ownership transferred",
   OAUTH_REDIRECT: "Sets auth cookies and redirects to frontend",
   OAUTH_PROVIDER_REDIRECT: "Redirect to provider authorization page",
   INVALID_INPUT: "Invalid input",
@@ -59,6 +61,9 @@ export const OPENAPI_PATHS = {
   ORGANIZATION_BY_ID: "/api/organizations/{orgId}",
   ORGANIZATION_INVITES: "/api/organizations/{orgId}/invites",
   ORGANIZATION_INVITE_BY_ID: "/api/organizations/{orgId}/invites/{inviteId}",
+  ORGANIZATION_MEMBER_ROLE: "/api/organizations/{orgId}/members/{userId}/role",
+  ORGANIZATION_TRANSFER_OWNERSHIP:
+    "/api/organizations/{orgId}/transfer-ownership",
   ORGANIZATION_INVITE_BY_TOKEN: "/api/organizations/invites/{token}",
   ORGANIZATION_INVITE_ACCEPT: "/api/organizations/invites/accept",
   OAUTH_GOOGLE: "/api/oauth/google",

@@ -172,6 +172,44 @@ export const OPENAPI_COMPONENTS = {
         token: { type: "string" },
       },
     },
+    UpdateOrganizationMemberRoleRequest: {
+      type: "object",
+      required: ["role"],
+      properties: {
+        role: {
+          type: "string",
+          enum: ["admin", "member"],
+        },
+      },
+    },
+    TransferOrganizationOwnershipRequest: {
+      type: "object",
+      required: ["targetUserId"],
+      properties: {
+        targetUserId: { type: "string", format: "uuid" },
+        previousOwnerRole: {
+          type: "string",
+          enum: ["admin", "member"],
+          default: "admin",
+        },
+      },
+    },
+    OrganizationMemberRoleUpdateResponse: {
+      type: "object",
+      properties: {
+        message: { type: "string" },
+        member: { $ref: "#/components/schemas/OrganizationMembership" },
+      },
+    },
+    OrganizationOwnershipTransferResponse: {
+      type: "object",
+      properties: {
+        message: { type: "string" },
+        organization: { $ref: "#/components/schemas/Organization" },
+        previousOwner: { $ref: "#/components/schemas/OrganizationMembership" },
+        newOwner: { $ref: "#/components/schemas/OrganizationMembership" },
+      },
+    },
     OrganizationListResponse: {
       type: "object",
       properties: {

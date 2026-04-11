@@ -909,6 +909,143 @@
         }
       }
     },
+    "/api/organizations/{orgId}/members/{userId}/role": {
+      "patch": {
+        "summary": "Update organization member role (owner only)",
+        "tags": [
+          "Organizations"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "orgId",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "in": "path",
+            "name": "userId",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateOrganizationMemberRoleRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Organization member role updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrganizationMemberRoleUpdateResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Organization or member not found"
+          },
+          "409": {
+            "description": "Role change conflict"
+          }
+        }
+      }
+    },
+    "/api/organizations/{orgId}/transfer-ownership": {
+      "post": {
+        "summary": "Transfer organization ownership to another member",
+        "tags": [
+          "Organizations"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "orgId",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TransferOrganizationOwnershipRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Organization ownership transferred",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrganizationOwnershipTransferResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Organization or member not found"
+          },
+          "409": {
+            "description": "Ownership transfer conflict"
+          }
+        }
+      }
+    },
     "/api/organizations/invites/{token}": {
       "get": {
         "summary": "Get invite details by token for current user",
@@ -1477,6 +1614,69 @@
         "properties": {
           "token": {
             "type": "string"
+          }
+        }
+      },
+      "UpdateOrganizationMemberRoleRequest": {
+        "type": "object",
+        "required": [
+          "role"
+        ],
+        "properties": {
+          "role": {
+            "type": "string",
+            "enum": [
+              "admin",
+              "member"
+            ]
+          }
+        }
+      },
+      "TransferOrganizationOwnershipRequest": {
+        "type": "object",
+        "required": [
+          "targetUserId"
+        ],
+        "properties": {
+          "targetUserId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "previousOwnerRole": {
+            "type": "string",
+            "enum": [
+              "admin",
+              "member"
+            ],
+            "default": "admin"
+          }
+        }
+      },
+      "OrganizationMemberRoleUpdateResponse": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string"
+          },
+          "member": {
+            "$ref": "#/components/schemas/OrganizationMembership"
+          }
+        }
+      },
+      "OrganizationOwnershipTransferResponse": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string"
+          },
+          "organization": {
+            "$ref": "#/components/schemas/Organization"
+          },
+          "previousOwner": {
+            "$ref": "#/components/schemas/OrganizationMembership"
+          },
+          "newOwner": {
+            "$ref": "#/components/schemas/OrganizationMembership"
           }
         }
       },

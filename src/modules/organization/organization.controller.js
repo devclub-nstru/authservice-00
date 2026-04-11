@@ -4,7 +4,10 @@ import {
   createOrganizationSchema,
   inviteIdParamSchema,
   inviteTokenParamSchema,
+  organizationMemberParamSchema,
   organizationIdParamSchema,
+  transferOrganizationOwnershipSchema,
+  updateOrganizationMemberRoleSchema,
   updateOrganizationSchema,
 } from "../../validations/organization/organization.validators.js";
 import {
@@ -17,6 +20,8 @@ import {
   listOrganizationInvitesForUser,
   listOrganizationsForUser,
   revokeOrganizationInviteForUser,
+  transferOrganizationOwnershipForUser,
+  updateOrganizationMemberRoleForUser,
   updateOrganizationForUser,
 } from "./organization.service.js";
 import {
@@ -245,6 +250,63 @@ export const revokeOrganizationInviteHandler = async (req, res) => {
     message: AUDIT_MESSAGES.ORG_INVITE_REVOKED,
     metadata: {
       inviteId,
+    },
+  });
+
+  res.status(200).json(result);
+};
+
+export const updateOrganizationMemberRoleHandler = async (req, res) => {
+  const auditContext = buildAuditContextFromRequest(req);
+  const { orgId, userId } = organizationMemberParamSchema.parse(req.params);
+  const payload = updateOrganizationMemberRoleSchema.parse(req.body);
+
+  const result = await updateOrganizationMemberRoleForUser(
+    orgId,
+    userId,
+    req.auth.sub,
+    payload,
+  );
+
+  await emitAuditEvent({
+    ...auditContext,
+    event: AUDIT_EVENTS.ORG_MEMBER_ROLE_UPDATED,
+    category: AUDIT_CATEGORY.ORGANIZATION,
+    status: AUDIT_STATUS.SUCCESS,
+    orgId,
+    targetUserId: userId,
+    message: AUDIT_MESSAGES.ORG_MEMBER_ROLE_UPDATED,
+    metadata: {
+      role: result.member.role,
+    },
+  });
+
+  res.status(200).json(result);
+};
+
+export const transferOrganizationOwnershipHandler = async (req, res) => {
+  const auditContext = buildAuditContextFromRequest(req);
+  const { orgId } = organizationIdParamSchema.parse(req.params);
+  const payload = transferOrganizationOwnershipSchema.parse(req.body);
+
+  const result = await transferOrganizationOwnershipForUser(
+    orgId,
+    req.auth.sub,
+    payload,
+  );
+
+  await emitAuditEvent({
+    ...auditContext,
+    event: AUDIT_EVENTS.ORG_OWNERSHIP_TRANSFERRED,
+    category: AUDIT_CATEGORY.ORGANIZATION,
+    status: AUDIT_STATUS.SUCCESS,
+    orgId,
+    targetUserId: payload.targetUserId,
+    message: AUDIT_MESSAGES.ORG_OWNERSHIP_TRANSFERRED,
+    metadata: {
+      demotedOwnerId: req.auth.sub,
+      demotedTo: result.previousOwner.role,
+      promotedOwnerId: payload.targetUserId,
     },
   });
 

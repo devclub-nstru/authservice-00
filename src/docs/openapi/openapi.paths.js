@@ -492,6 +492,84 @@ export const OPENAPI_PATH_DEFINITIONS = {
       },
     },
   },
+  [OPENAPI_PATHS.ORGANIZATION_MEMBER_ROLE]: {
+    patch: {
+      summary: "Update organization member role (owner only)",
+      tags: [OPENAPI_TAGS.ORGANIZATIONS],
+      security: OPENAPI_SECURITY.AUTHENTICATED,
+      parameters: [
+        {
+          in: "path",
+          name: "orgId",
+          required: true,
+          schema: { type: "string", format: "uuid" },
+        },
+        {
+          in: "path",
+          name: "userId",
+          required: true,
+          schema: { type: "string", format: "uuid" },
+        },
+      ],
+      requestBody: {
+        required: true,
+        content: {
+          "application/json": {
+            schema: {
+              $ref: "#/components/schemas/UpdateOrganizationMemberRoleRequest",
+            },
+          },
+        },
+      },
+      responses: {
+        200: jsonRefResponse(
+          OPENAPI_DESCRIPTIONS.ORGANIZATION_MEMBER_ROLE_UPDATED,
+          "#/components/schemas/OrganizationMemberRoleUpdateResponse",
+        ),
+        400: { description: OPENAPI_DESCRIPTIONS.INVALID_INPUT },
+        401: { description: OPENAPI_DESCRIPTIONS.UNAUTHORIZED },
+        403: { description: "Forbidden" },
+        404: { description: "Organization or member not found" },
+        409: { description: "Role change conflict" },
+      },
+    },
+  },
+  [OPENAPI_PATHS.ORGANIZATION_TRANSFER_OWNERSHIP]: {
+    post: {
+      summary: "Transfer organization ownership to another member",
+      tags: [OPENAPI_TAGS.ORGANIZATIONS],
+      security: OPENAPI_SECURITY.AUTHENTICATED,
+      parameters: [
+        {
+          in: "path",
+          name: "orgId",
+          required: true,
+          schema: { type: "string", format: "uuid" },
+        },
+      ],
+      requestBody: {
+        required: true,
+        content: {
+          "application/json": {
+            schema: {
+              $ref: "#/components/schemas/TransferOrganizationOwnershipRequest",
+            },
+          },
+        },
+      },
+      responses: {
+        200: jsonRefResponse(
+          OPENAPI_DESCRIPTIONS.ORGANIZATION_OWNERSHIP_TRANSFERRED,
+          "#/components/schemas/OrganizationOwnershipTransferResponse",
+        ),
+        400: { description: OPENAPI_DESCRIPTIONS.INVALID_INPUT },
+        401: { description: OPENAPI_DESCRIPTIONS.UNAUTHORIZED },
+        403: { description: "Forbidden" },
+        404: { description: "Organization or member not found" },
+        409: { description: "Ownership transfer conflict" },
+      },
+    },
+  },
   [OPENAPI_PATHS.ORGANIZATION_INVITE_BY_TOKEN]: {
     get: {
       summary: "Get invite details by token for current user",

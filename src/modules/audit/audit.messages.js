@@ -26,6 +26,8 @@ export const AUDIT_MESSAGES = {
   ORG_INVITES_VIEWED: "Organization invites viewed",
   ORG_INVITE_ACCEPTED: "Organization invite accepted",
   ORG_INVITE_REVOKED: "Organization invite revoked",
+  ORG_MEMBER_ROLE_UPDATED: "Organization member role updated",
+  ORG_OWNERSHIP_TRANSFERRED: "Organization ownership transferred",
   OAUTH_START: "OAuth flow started",
   OAUTH_CALLBACK_SUCCESS: "OAuth callback succeeded",
   OAUTH_CALLBACK_FAILED: "OAuth callback failed",

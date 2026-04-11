@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import db from "../../db/client/db.js";
 import env from "../../core/config/config.js";
 import {
+  badRequest,
   conflict,
   forbidden,
   notFound,
@@ -11,6 +12,7 @@ import { queueEmailJob } from "../email/email.queue.js";
 import { EMAIL_SUBJECTS } from "../email/email.constants.js";
 import { organizationInviteTemplate } from "../email/email.templates.js";
 import {
+  countOrganizationOwners,
   createOrganization,
   createOrganizationInvite,
   createOrganizationMember,
@@ -29,6 +31,7 @@ import {
   listOrganizationsByUserId,
   markOrganizationInviteUsed,
   revokeOrganizationInvite,
+  updateOrganizationMemberRole,
   updateOrganizationById,
 } from "./organization.repository.js";
 import {
@@ -427,4 +430,116 @@ export const revokeOrganizationInviteForUser = async (
     invite: sanitizeInvite(revoked),
     message: ORGANIZATION_MESSAGES.INVITE_REVOKED,
   };
+};
+
+export const updateOrganizationMemberRoleForUser = async (
+  orgId,
+  targetUserId,
+  actorUserId,
+  payload,
+) => {
+  const organization = await findOrganizationById(orgId);
+  if (!organization) {
+    notFound(ORGANIZATION_ERRORS.ORGANIZATION_NOT_FOUND);
+  }
+
+  await requireOrgRoles(orgId, actorUserId, [ORGANIZATION_ROLES.OWNER]);
+
+  const targetMembership = await findOrganizationMember(orgId, targetUserId);
+  if (!targetMembership) {
+    notFound(ORGANIZATION_ERRORS.MEMBER_NOT_FOUND);
+  }
+
+  if (targetMembership.userId === actorUserId) {
+    badRequest(ORGANIZATION_ERRORS.OWNER_SELF_ROLE_CHANGE_NOT_ALLOWED);
+  }
+
+  if (payload.role === ORGANIZATION_ROLES.OWNER) {
+    badRequest(ORGANIZATION_ERRORS.OWNER_TRANSFER_REQUIRED);
+  }
+
+  if (
+    targetMembership.role === ORGANIZATION_ROLES.OWNER &&
+    payload.role !== ORGANIZATION_ROLES.OWNER
+  ) {
+    const ownerCount = await countOrganizationOwners(orgId);
+    if (ownerCount <= 1) {
+      conflict(ORGANIZATION_ERRORS.LAST_OWNER_ROLE_CHANGE_NOT_ALLOWED);
+    }
+  }
+
+  const updatedMembership = await updateOrganizationMemberRole(
+    orgId,
+    targetUserId,
+    payload.role,
+  );
+
+  if (!updatedMembership) {
+    notFound(ORGANIZATION_ERRORS.MEMBER_NOT_FOUND);
+  }
+
+  return {
+    member: updatedMembership,
+    message: ORGANIZATION_MESSAGES.MEMBER_ROLE_UPDATED,
+  };
+};
+
+export const transferOrganizationOwnershipForUser = async (
+  orgId,
+  actorUserId,
+  payload,
+) => {
+  const organization = await findOrganizationById(orgId);
+  if (!organization) {
+    notFound(ORGANIZATION_ERRORS.ORGANIZATION_NOT_FOUND);
+  }
+
+  if (payload.targetUserId === actorUserId) {
+    badRequest(ORGANIZATION_ERRORS.TRANSFER_TARGET_SAME_AS_ACTOR);
+  }
+
+  return db.transaction(async (tx) => {
+    const actorMembership = await requireOrgRoles(
+      orgId,
+      actorUserId,
+      [ORGANIZATION_ROLES.OWNER],
+      tx,
+    );
+
+    const targetMembership = await findOrganizationMember(
+      orgId,
+      payload.targetUserId,
+      tx,
+    );
+
+    if (!targetMembership) {
+      notFound(ORGANIZATION_ERRORS.MEMBER_NOT_FOUND);
+    }
+
+    if (targetMembership.role === ORGANIZATION_ROLES.OWNER) {
+      conflict(ORGANIZATION_ERRORS.TRANSFER_TARGET_ALREADY_OWNER);
+    }
+
+    const promotedMembership = await updateOrganizationMemberRole(
+      orgId,
+      payload.targetUserId,
+      ORGANIZATION_ROLES.OWNER,
+      tx,
+    );
+
+    const demotedMembership = await updateOrganizationMemberRole(
+      orgId,
+      actorUserId,
+      payload.previousOwnerRole,
+      tx,
+    );
+
+    return {
+      organization: sanitizeOrganization(organization),
+      previousOwner: demotedMembership,
+      newOwner: promotedMembership,
+      message: ORGANIZATION_MESSAGES.OWNERSHIP_TRANSFERRED,
+      previousOwnerRole: actorMembership.role,
+    };
+  });
 };

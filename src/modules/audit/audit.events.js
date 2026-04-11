@@ -24,6 +24,8 @@ export const AUDIT_EVENTS = {
   ORG_INVITES_VIEWED: "organization.invite.listed",
   ORG_INVITE_ACCEPTED: "organization.invite.accepted",
   ORG_INVITE_REVOKED: "organization.invite.revoked",
+  ORG_MEMBER_ROLE_UPDATED: "organization.member.role_updated",
+  ORG_OWNERSHIP_TRANSFERRED: "organization.ownership.transferred",
   OAUTH_START: "oauth.start",
   OAUTH_CALLBACK_SUCCESS: "oauth.callback.success",
   OAUTH_CALLBACK_FAILED: "oauth.callback.failed",
