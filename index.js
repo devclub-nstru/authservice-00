@@ -17,6 +17,10 @@ import {
 } from "./src/core/config/redis.js";
 import { cleanupQueue } from "./src/queues/index.js";
 import logger from "./src/core/logger/logger.js";
+import {
+  CLEANUP_SCHEDULE,
+  QUEUE_JOB_NAMES,
+} from "./src/core/constants/queue.constants.js";
 
 const app = express();
 
@@ -91,11 +95,11 @@ const bootstrap = async () => {
   await ensureRedisConnection();
 
   await cleanupQueue.add(
-    "cleanup-expired-records",
+    QUEUE_JOB_NAMES.CLEANUP_EXPIRED_RECORDS,
     {},
     {
-      repeat: { every: 15 * 60 * 1000 },
-      jobId: "cleanup-expired-records",
+      repeat: { every: CLEANUP_SCHEDULE.intervalMs },
+      jobId: CLEANUP_SCHEDULE.jobId,
     },
   );
 

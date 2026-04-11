@@ -23,6 +23,8 @@ import {
   refreshCookieOptions,
 } from "../../core/auth/cookie.js";
 import { unauthorized } from "../../utils/errors.js";
+import { COOKIE_NAMES } from "../../core/constants/cookie.constants.js";
+import { TOKEN_ERROR_MESSAGES } from "../../core/constants/security.constants.js";
 import {
   AUDIT_CATEGORY,
   AUDIT_EVENTS,
@@ -32,18 +34,27 @@ import {
   buildAuditContextFromRequest,
   emitAuditEvent,
 } from "../audit/audit.service.js";
+import { AUTH_MESSAGES } from "./auth.constants.js";
 
 const setAuthCookies = (res, tokens) => {
-  res.cookie("access_token", tokens.accessToken, accessCookieOptions);
-  res.cookie("refresh_token", tokens.refreshToken, refreshCookieOptions);
+  res.cookie(
+    COOKIE_NAMES.ACCESS_TOKEN,
+    tokens.accessToken,
+    accessCookieOptions,
+  );
+  res.cookie(
+    COOKIE_NAMES.REFRESH_TOKEN,
+    tokens.refreshToken,
+    refreshCookieOptions,
+  );
 };
 
 const clearAuthCookies = (res) => {
-  res.clearCookie("access_token", {
+  res.clearCookie(COOKIE_NAMES.ACCESS_TOKEN, {
     ...accessCookieOptions,
     maxAge: undefined,
   });
-  res.clearCookie("refresh_token", {
+  res.clearCookie(COOKIE_NAMES.REFRESH_TOKEN, {
     ...refreshCookieOptions,
     maxAge: undefined,
   });
@@ -138,12 +149,12 @@ export const logoutHandler = async (req, res) => {
   });
 
   clearAuthCookies(res);
-  res.status(200).json({ message: "Logged out" });
+  res.status(200).json({ message: AUTH_MESSAGES.LOGGED_OUT });
 };
 
 export const refreshHandler = async (req, res) => {
   const auditContext = buildAuditContextFromRequest(req);
-  const refreshToken = req.cookies.refresh_token;
+  const refreshToken = req.cookies[COOKIE_NAMES.REFRESH_TOKEN];
   if (!refreshToken) {
     await emitAuditEvent({
       ...auditContext,
@@ -153,7 +164,7 @@ export const refreshHandler = async (req, res) => {
       severity: "warn",
       message: "Token refresh failed due to missing refresh token",
     });
-    unauthorized("Missing refresh token");
+    unauthorized(TOKEN_ERROR_MESSAGES.MISSING_REFRESH);
   }
 
   try {
@@ -208,7 +219,7 @@ export const verifyEmailHandler = async (req, res) => {
     message: "Email verification completed",
   });
 
-  res.status(200).json({ message: "Email verified" });
+  res.status(200).json({ message: AUTH_MESSAGES.EMAIL_VERIFIED });
 };
 
 export const resendVerificationHandler = async (req, res) => {
@@ -228,9 +239,7 @@ export const resendVerificationHandler = async (req, res) => {
     },
   });
 
-  res
-    .status(200)
-    .json({ message: "If the account exists, an email has been sent" });
+  res.status(200).json({ message: AUTH_MESSAGES.IF_ACCOUNT_EXISTS_EMAIL_SENT });
 };
 
 export const forgotPasswordHandler = async (req, res) => {
@@ -250,9 +259,7 @@ export const forgotPasswordHandler = async (req, res) => {
     },
   });
 
-  res
-    .status(200)
-    .json({ message: "If the account exists, a reset email has been sent" });
+  res.status(200).json({ message: AUTH_MESSAGES.IF_ACCOUNT_EXISTS_RESET_SENT });
 };
 
 export const resetPasswordHandler = async (req, res) => {
@@ -270,7 +277,7 @@ export const resetPasswordHandler = async (req, res) => {
   });
 
   clearAuthCookies(res);
-  res.status(200).json({ message: "Password updated" });
+  res.status(200).json({ message: AUTH_MESSAGES.PASSWORD_UPDATED });
 };
 
 export const listSessionsHandler = async (req, res) => {
@@ -307,5 +314,5 @@ export const revokeSessionHandler = async (req, res) => {
     },
   });
 
-  res.status(200).json({ message: "Session revoked" });
+  res.status(200).json({ message: AUTH_MESSAGES.SESSION_REVOKED });
 };

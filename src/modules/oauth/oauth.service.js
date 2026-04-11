@@ -18,23 +18,28 @@ import {
 import { createUserSession } from "../auth/session.service.js";
 import { signAccessToken, signRefreshToken } from "../auth/token.service.js";
 import { AppError } from "../../utils/errors.js";
+import {
+  OAUTH_ERROR_CODES,
+  OAUTH_ERRORS,
+  OAUTH_PROVIDERS,
+} from "./oauth.constants.js";
 
 const getProviderAuthorizationUrl = (provider) => {
-  if (provider === "google") {
+  if (provider === OAUTH_PROVIDERS.GOOGLE) {
     return getGoogleAuthorizationUrl();
   }
 
-  if (provider === "github") {
+  if (provider === OAUTH_PROVIDERS.GITHUB) {
     return getGithubAuthorizationUrl();
   }
 
-  throw new AppError("Unsupported OAuth provider", 400, {
-    code: "OAUTH_PROVIDER_INVALID",
+  throw new AppError(OAUTH_ERRORS.INVALID_PROVIDER, 400, {
+    code: OAUTH_ERROR_CODES.INVALID_PROVIDER,
   });
 };
 
 const getProviderProfile = async (provider, code) => {
-  if (provider === "google") {
+  if (provider === OAUTH_PROVIDERS.GOOGLE) {
     const tokenPayload = await exchangeGoogleCode(code);
     const profile = await fetchGoogleProfile(tokenPayload.access_token);
 
@@ -48,7 +53,7 @@ const getProviderProfile = async (provider, code) => {
     };
   }
 
-  if (provider === "github") {
+  if (provider === OAUTH_PROVIDERS.GITHUB) {
     const tokenPayload = await exchangeGithubCode(code);
     const profile = await fetchGithubProfile(tokenPayload.access_token);
 
@@ -60,8 +65,8 @@ const getProviderProfile = async (provider, code) => {
     };
   }
 
-  throw new AppError("Unsupported OAuth provider", 400, {
-    code: "OAUTH_PROVIDER_INVALID",
+  throw new AppError(OAUTH_ERRORS.INVALID_PROVIDER, 400, {
+    code: OAUTH_ERROR_CODES.INVALID_PROVIDER,
   });
 };
 
@@ -73,8 +78,8 @@ export const handleOauthCallback = async ({ provider, code, deviceInfo }) => {
   const providerData = await getProviderProfile(provider, code);
 
   if (!providerData.profile.email) {
-    throw new AppError("OAuth provider did not return an email", 400, {
-      code: "OAUTH_EMAIL_MISSING",
+    throw new AppError(OAUTH_ERRORS.MISSING_EMAIL, 400, {
+      code: OAUTH_ERROR_CODES.MISSING_EMAIL,
     });
   }
 

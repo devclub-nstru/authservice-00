@@ -1,21 +1,21 @@
 import axios from "axios";
 import env from "../../../core/config/config.js";
+import { OAUTH_PROVIDERS } from "../oauth.constants.js";
+import { OAUTH_PROVIDER_DETAILS } from "./provider.constants.js";
 
-const GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth";
-const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
-const GOOGLE_USERINFO_URL = "https://www.googleapis.com/oauth2/v2/userinfo";
+const GOOGLE_PROVIDER = OAUTH_PROVIDER_DETAILS[OAUTH_PROVIDERS.GOOGLE];
 
 export const getGoogleAuthorizationUrl = () => {
   const params = new URLSearchParams({
     client_id: env.GOOGLE_CLIENT_ID,
     redirect_uri: env.GOOGLE_CALLBACK_URL,
     response_type: "code",
-    scope: "openid email profile",
-    access_type: "offline",
-    prompt: "consent",
+    scope: GOOGLE_PROVIDER.scope,
+    access_type: GOOGLE_PROVIDER.accessType,
+    prompt: GOOGLE_PROVIDER.prompt,
   });
 
-  return `${GOOGLE_AUTH_URL}?${params.toString()}`;
+  return `${GOOGLE_PROVIDER.authUrl}?${params.toString()}`;
 };
 
 export const exchangeGoogleCode = async (code) => {
@@ -24,23 +24,27 @@ export const exchangeGoogleCode = async (code) => {
     client_id: env.GOOGLE_CLIENT_ID,
     client_secret: env.GOOGLE_CLIENT_SECRET,
     redirect_uri: env.GOOGLE_CALLBACK_URL,
-    grant_type: "authorization_code",
+    grant_type: GOOGLE_PROVIDER.tokenGrantType,
   });
 
-  const { data } = await axios.post(GOOGLE_TOKEN_URL, payload.toString(), {
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-  });
+  const { data } = await axios.post(
+    GOOGLE_PROVIDER.tokenUrl,
+    payload.toString(),
+    {
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    },
+  );
 
   return data;
 };
 
 export const fetchGoogleProfile = async (accessToken) => {
-  const { data } = await axios.get(GOOGLE_USERINFO_URL, {
+  const { data } = await axios.get(GOOGLE_PROVIDER.profileUrl, {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
 
   return {
-    provider: "google",
+    provider: OAUTH_PROVIDERS.GOOGLE,
     providerAccountId: data.id,
     email: data.email,
     name: data.name,

@@ -14,9 +14,13 @@ import {
 } from "../core/config/redis.js";
 import { startEmailWorker } from "../modules/email/email.worker.js";
 import { deadLetterQueue } from "../queues/index.js";
+import {
+  QUEUE_JOB_NAMES,
+  QUEUE_NAMES,
+} from "../core/constants/queue.constants.js";
 
 const cleanupWorker = new Worker(
-  "cleanupQueue",
+  QUEUE_NAMES.CLEANUP,
   async () => {
     const now = new Date();
     await Promise.all([
@@ -38,8 +42,8 @@ cleanupWorker.on("failed", async (job, error) => {
   logger.error("Cleanup job failed", { jobId: job?.id, error: error.message });
 
   if (job) {
-    await deadLetterQueue.add("cleanup-failed", {
-      queue: "cleanupQueue",
+    await deadLetterQueue.add(QUEUE_JOB_NAMES.CLEANUP_FAILED, {
+      queue: QUEUE_NAMES.CLEANUP,
       payload: job.data,
       reason: error.message,
     });
@@ -47,7 +51,7 @@ cleanupWorker.on("failed", async (job, error) => {
 });
 
 const deviceAlertWorker = new Worker(
-  "deviceAlertQueue",
+  QUEUE_NAMES.DEVICE_ALERT,
   async (job) => {
     logger.info("Processed device alert job", {
       userId: job.data.userId,
@@ -64,8 +68,8 @@ deviceAlertWorker.on("failed", async (job, error) => {
   });
 
   if (job) {
-    await deadLetterQueue.add("device-alert-failed", {
-      queue: "deviceAlertQueue",
+    await deadLetterQueue.add(QUEUE_JOB_NAMES.DEVICE_ALERT_FAILED, {
+      queue: QUEUE_NAMES.DEVICE_ALERT,
       payload: job.data,
       reason: error.message,
     });

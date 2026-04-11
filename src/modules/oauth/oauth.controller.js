@@ -14,10 +14,20 @@ import {
 } from "../audit/audit.service.js";
 import { buildRequestDevice } from "../auth/device.service.js";
 import { handleOauthCallback, getOauthStartUrl } from "./oauth.service.js";
+import { OAUTH_CALLBACK_QUERY_CODE, OAUTH_ERRORS } from "./oauth.constants.js";
+import { COOKIE_NAMES } from "../../core/constants/cookie.constants.js";
 
 const setAuthCookies = (res, tokens) => {
-  res.cookie("access_token", tokens.accessToken, accessCookieOptions);
-  res.cookie("refresh_token", tokens.refreshToken, refreshCookieOptions);
+  res.cookie(
+    COOKIE_NAMES.ACCESS_TOKEN,
+    tokens.accessToken,
+    accessCookieOptions,
+  );
+  res.cookie(
+    COOKIE_NAMES.REFRESH_TOKEN,
+    tokens.refreshToken,
+    refreshCookieOptions,
+  );
 };
 
 export const oauthStartHandler = async (req, res) => {
@@ -41,7 +51,7 @@ export const oauthStartHandler = async (req, res) => {
 
 export const oauthCallbackHandler = async (req, res) => {
   const provider = req.params.provider;
-  const code = req.query.code;
+  const code = req.query[OAUTH_CALLBACK_QUERY_CODE];
   const auditContext = buildAuditContextFromRequest(req);
 
   if (!code || typeof code !== "string") {
@@ -57,7 +67,7 @@ export const oauthCallbackHandler = async (req, res) => {
       },
     });
 
-    badRequest("Missing OAuth authorization code");
+    badRequest(OAUTH_ERRORS.MISSING_CODE);
   }
 
   try {

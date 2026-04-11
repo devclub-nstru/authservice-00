@@ -1,15 +1,13 @@
 import { emailQueue } from "../../queues/index.js";
+import {
+  EMAIL_JOB_OPTIONS,
+  QUEUE_JOB_NAMES,
+} from "../../core/constants/queue.constants.js";
 
 export const queueEmailJob = async ({ to, subject, html }) => {
   return emailQueue.add(
-    "send-email",
+    QUEUE_JOB_NAMES.SEND_EMAIL,
     { to, subject, html },
-    {
-      attempts: 5,
-      backoff: {
-        type: "exponential",
-        delay: 1500,
-      },
-    },
+    EMAIL_JOB_OPTIONS,
   );
 };

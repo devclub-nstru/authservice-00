@@ -1,34 +1,28 @@
 import { Queue } from "bullmq";
 import { getRedisClient } from "../core/config/redis.js";
+import {
+  QUEUE_DEFAULT_OPTIONS,
+  QUEUE_NAMES,
+} from "../core/constants/queue.constants.js";
 
 const connection = getRedisClient();
 
-const defaultJobOptions = {
-  attempts: 3,
-  backoff: {
-    type: "exponential",
-    delay: 1000,
-  },
-  removeOnComplete: true,
-  removeOnFail: false,
-};
-
-export const emailQueue = new Queue("emailQueue", {
+export const emailQueue = new Queue(QUEUE_NAMES.EMAIL, {
   connection,
-  defaultJobOptions,
+  defaultJobOptions: QUEUE_DEFAULT_OPTIONS,
 });
 
-export const deviceAlertQueue = new Queue("deviceAlertQueue", {
+export const deviceAlertQueue = new Queue(QUEUE_NAMES.DEVICE_ALERT, {
   connection,
-  defaultJobOptions,
+  defaultJobOptions: QUEUE_DEFAULT_OPTIONS,
 });
 
-export const cleanupQueue = new Queue("cleanupQueue", {
+export const cleanupQueue = new Queue(QUEUE_NAMES.CLEANUP, {
   connection,
-  defaultJobOptions,
+  defaultJobOptions: QUEUE_DEFAULT_OPTIONS,
 });
 
-export const deadLetterQueue = new Queue("deadLetterQueue", {
+export const deadLetterQueue = new Queue(QUEUE_NAMES.DEAD_LETTER, {
   connection,
-  defaultJobOptions,
+  defaultJobOptions: QUEUE_DEFAULT_OPTIONS,
 });

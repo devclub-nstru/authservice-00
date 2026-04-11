@@ -1,19 +1,18 @@
 import axios from "axios";
 import env from "../../../core/config/config.js";
+import { OAUTH_PROVIDERS } from "../oauth.constants.js";
+import { OAUTH_PROVIDER_DETAILS } from "./provider.constants.js";
 
-const GITHUB_AUTH_URL = "https://github.com/login/oauth/authorize";
-const GITHUB_TOKEN_URL = "https://github.com/login/oauth/access_token";
-const GITHUB_USER_URL = "https://api.github.com/user";
-const GITHUB_EMAILS_URL = "https://api.github.com/user/emails";
+const GITHUB_PROVIDER = OAUTH_PROVIDER_DETAILS[OAUTH_PROVIDERS.GITHUB];
 
 export const getGithubAuthorizationUrl = () => {
   const params = new URLSearchParams({
     client_id: env.GITHUB_CLIENT_ID,
     redirect_uri: env.GITHUB_CALLBACK_URL,
-    scope: "read:user user:email",
+    scope: GITHUB_PROVIDER.scope,
   });
 
-  return `${GITHUB_AUTH_URL}?${params.toString()}`;
+  return `${GITHUB_PROVIDER.authUrl}?${params.toString()}`;
 };
 
 export const exchangeGithubCode = async (code) => {
@@ -24,8 +23,8 @@ export const exchangeGithubCode = async (code) => {
     redirect_uri: env.GITHUB_CALLBACK_URL,
   };
 
-  const { data } = await axios.post(GITHUB_TOKEN_URL, payload, {
-    headers: { Accept: "application/json" },
+  const { data } = await axios.post(GITHUB_PROVIDER.tokenUrl, payload, {
+    headers: { Accept: GITHUB_PROVIDER.acceptJson },
   });
 
   return data;
@@ -34,19 +33,19 @@ export const exchangeGithubCode = async (code) => {
 export const fetchGithubProfile = async (accessToken) => {
   const headers = {
     Authorization: `Bearer ${accessToken}`,
-    Accept: "application/vnd.github+json",
+    Accept: GITHUB_PROVIDER.acceptGithubVnd,
   };
 
   const [{ data: user }, { data: emails }] = await Promise.all([
-    axios.get(GITHUB_USER_URL, { headers }),
-    axios.get(GITHUB_EMAILS_URL, { headers }),
+    axios.get(GITHUB_PROVIDER.profileUrl, { headers }),
+    axios.get(GITHUB_PROVIDER.emailsUrl, { headers }),
   ]);
 
   const primaryEmail =
     emails.find((entry) => entry.primary)?.email || user.email;
 
   return {
-    provider: "github",
+    provider: OAUTH_PROVIDERS.GITHUB,
     providerAccountId: String(user.id),
     email: primaryEmail,
     name: user.name || user.login,

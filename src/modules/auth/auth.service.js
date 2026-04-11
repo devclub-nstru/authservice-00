@@ -38,8 +38,17 @@ import {
   passwordResetTemplate,
   welcomeTemplate,
 } from "../email/email.templates.js";
+import {
+  AUTH_ERRORS,
+  AUTH_ROUTE_PATHS,
+  AUTH_TOKEN_BYTES,
+  AUTH_TOKEN_TTL_MS,
+} from "./auth.constants.js";
+import { EMAIL_SUBJECTS } from "../email/email.constants.js";
+import { QUEUE_JOB_NAMES } from "../../core/constants/queue.constants.js";
 
-const generateOneTimeToken = () => crypto.randomBytes(32).toString("hex");
+const generateOneTimeToken = () =>
+  crypto.randomBytes(AUTH_TOKEN_BYTES).toString("hex");
 
 const issueAuthTokens = ({ userId, sessionId, sessionVersion }) => {
   const payload = {
@@ -63,7 +72,7 @@ export const signup = async (input, deviceInfo) => {
   const result = await db.transaction(async (tx) => {
     const existing = await findUserByEmail(input.email, tx);
     if (existing) {
-      conflict("Email is already registered");
+      conflict(AUTH_ERRORS.EMAIL_EXISTS);
     }
 
     const passwordHash = await hashPassword(input.password);
@@ -80,7 +89,9 @@ export const signup = async (input, deviceInfo) => {
     );
 
     const verificationToken = generateOneTimeToken();
-    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    const expiresAt = new Date(
+      Date.now() + AUTH_TOKEN_TTL_MS.EMAIL_VERIFICATION,
+    );
 
     await createEmailVerificationToken(
       {
@@ -112,17 +123,17 @@ export const signup = async (input, deviceInfo) => {
     };
   });
 
-  const verificationUrl = `${env.API_BASE_URL}/api/auth/verify-email/${result.verificationToken}`;
+  const verificationUrl = `${env.API_BASE_URL}${AUTH_ROUTE_PATHS.VERIFY_EMAIL}/${result.verificationToken}`;
 
   await Promise.all([
     queueEmailJob({
       to: result.user.email,
-      subject: "Welcome to Auth Service",
+      subject: EMAIL_SUBJECTS.WELCOME,
       html: welcomeTemplate({ name: result.user.name }),
     }),
     queueEmailJob({
       to: result.user.email,
-      subject: "Verify your email",
+      subject: EMAIL_SUBJECTS.VERIFY_EMAIL,
       html: emailVerificationTemplate({ verifyUrl: verificationUrl }),
     }),
   ]);
@@ -143,12 +154,12 @@ export const signup = async (input, deviceInfo) => {
 export const login = async (input, deviceInfo) => {
   const user = await findUserByEmail(input.email);
   if (!user || !user.passwordHash) {
-    unauthorized("Invalid email or password");
+    unauthorized(AUTH_ERRORS.INVALID_CREDENTIALS);
   }
 
   const matches = await comparePassword(input.password, user.passwordHash);
   if (!matches) {
-    unauthorized("Invalid email or password");
+    unauthorized(AUTH_ERRORS.INVALID_CREDENTIALS);
   }
 
   const knownDevice = await findSessionByUserAndDevice(
@@ -167,7 +178,7 @@ export const login = async (input, deviceInfo) => {
   await updateUserById(user.id, { lastLoginAt: new Date() });
 
   if (!knownDevice) {
-    await deviceAlertQueue.add("new-device-alert", {
+    await deviceAlertQueue.add(QUEUE_JOB_NAMES.NEW_DEVICE_ALERT, {
       userId: user.id,
       email: user.email,
       userAgent: deviceInfo.userAgent,
@@ -176,7 +187,7 @@ export const login = async (input, deviceInfo) => {
 
     await queueEmailJob({
       to: user.email,
-      subject: "New device login detected",
+      subject: EMAIL_SUBJECTS.NEW_DEVICE,
       html: newDeviceAlertTemplate({
         userAgent: deviceInfo.userAgent,
         ipAddress: deviceInfo.ipAddress,
@@ -201,7 +212,7 @@ export const login = async (input, deviceInfo) => {
 export const logout = async ({ userId, sessionId }) => {
   const revoked = await revokeSession(userId, sessionId);
   if (!revoked) {
-    notFound("Session not found");
+    notFound(AUTH_ERRORS.SESSION_NOT_FOUND);
   }
 };
 
@@ -210,15 +221,15 @@ export const refreshAuth = async (refreshToken) => {
 
   const currentSession = await findSession(payload.sid);
   if (!currentSession || !currentSession.isActive) {
-    unauthorized("Session is no longer active");
+    unauthorized(AUTH_ERRORS.SESSION_INACTIVE);
   }
 
   if (new Date(currentSession.expiresAt).getTime() <= Date.now()) {
-    unauthorized("Session has expired");
+    unauthorized(AUTH_ERRORS.SESSION_EXPIRED);
   }
 
   if (currentSession.version !== payload.ver) {
-    unauthorized("Session token version mismatch");
+    unauthorized(AUTH_ERRORS.SESSION_VERSION_MISMATCH);
   }
 
   const rotated = await rotateSession(
@@ -226,7 +237,7 @@ export const refreshAuth = async (refreshToken) => {
     currentSession.version,
   );
   if (!rotated) {
-    unauthorized("Session refresh failed");
+    unauthorized(AUTH_ERRORS.SESSION_REFRESH_FAILED);
   }
 
   const tokens = issueAuthTokens({
@@ -244,7 +255,7 @@ export const refreshAuth = async (refreshToken) => {
 export const verifyEmail = async (token) => {
   const verificationRecord = await findValidEmailVerificationToken(token);
   if (!verificationRecord) {
-    unauthorized("Invalid or expired verification token");
+    unauthorized(AUTH_ERRORS.INVALID_VERIFICATION_TOKEN);
   }
 
   await db.transaction(async (tx) => {
@@ -268,7 +279,7 @@ export const resendVerificationEmail = async ({ email }) => {
   }
 
   const token = generateOneTimeToken();
-  const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+  const expiresAt = new Date(Date.now() + AUTH_TOKEN_TTL_MS.EMAIL_VERIFICATION);
 
   await createEmailVerificationToken({
     userId: user.id,
@@ -279,9 +290,9 @@ export const resendVerificationEmail = async ({ email }) => {
 
   await queueEmailJob({
     to: email,
-    subject: "Verify your email",
+    subject: EMAIL_SUBJECTS.VERIFY_EMAIL,
     html: emailVerificationTemplate({
-      verifyUrl: `${env.API_BASE_URL}/api/auth/verify-email/${token}`,
+      verifyUrl: `${env.API_BASE_URL}${AUTH_ROUTE_PATHS.VERIFY_EMAIL}/${token}`,
     }),
   });
 };
@@ -293,7 +304,7 @@ export const forgotPassword = async ({ email }) => {
   }
 
   const token = generateOneTimeToken();
-  const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
+  const expiresAt = new Date(Date.now() + AUTH_TOKEN_TTL_MS.PASSWORD_RESET);
 
   await createPasswordResetToken({
     userId: user.id,
@@ -303,9 +314,9 @@ export const forgotPassword = async ({ email }) => {
 
   await queueEmailJob({
     to: user.email,
-    subject: "Reset your password",
+    subject: EMAIL_SUBJECTS.RESET_PASSWORD,
     html: passwordResetTemplate({
-      resetUrl: `${env.FRONTEND_URL}/reset-password?token=${token}`,
+      resetUrl: `${env.FRONTEND_URL}${AUTH_ROUTE_PATHS.FRONTEND_RESET_PASSWORD}?token=${token}`,
     }),
   });
 };
@@ -313,7 +324,7 @@ export const forgotPassword = async ({ email }) => {
 export const resetPassword = async ({ token, password }) => {
   const resetRecord = await findValidPasswordResetToken(token);
   if (!resetRecord) {
-    unauthorized("Invalid or expired reset token");
+    unauthorized(AUTH_ERRORS.INVALID_RESET_TOKEN);
   }
 
   await db.transaction(async (tx) => {
@@ -328,7 +339,7 @@ export const resetPassword = async ({ token, password }) => {
   if (user) {
     await queueEmailJob({
       to: user.email,
-      subject: "Your password has changed",
+      subject: EMAIL_SUBJECTS.PASSWORD_CHANGED,
       html: passwordChangedTemplate({ changedAt: new Date().toISOString() }),
     });
   }
@@ -341,6 +352,6 @@ export const getUserSessions = async (userId) => {
 export const revokeUserSession = async (userId, sessionId) => {
   const session = await revokeSession(userId, sessionId);
   if (!session) {
-    notFound("Session not found");
+    notFound(AUTH_ERRORS.SESSION_NOT_FOUND);
   }
 };
