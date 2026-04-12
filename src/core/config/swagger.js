@@ -10,9 +10,9 @@ const openApiPath = path.resolve(__dirname, "../../docs/openapi.json");
 const defaultSpec = {
   openapi: "3.0.3",
   info: {
-    title: "Auth Service API",
+    title: "Kael API",
     version: "1.0.0",
-    description: "OpenAPI docs for authservice-00",
+    description: "OpenAPI docs for Kael",
   },
   servers: [
     {
