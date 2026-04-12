@@ -1220,6 +1220,98 @@ export const OPENAPI_PATH_DEFINITIONS = {
       },
     },
   },
+  [OPENAPI_PATHS.OAUTH_AUTHORIZE_COMPLETE]: {
+    post: {
+      summary: "Complete OIDC authorize request after user authentication",
+      tags: [OPENAPI_TAGS.SSO],
+      security: OPENAPI_SECURITY.AUTHENTICATED,
+      requestBody: {
+        required: true,
+        content: {
+          "application/json": {
+            schema: {
+              $ref: "#/components/schemas/OidcAuthorizeCompleteRequest",
+            },
+          },
+        },
+      },
+      responses: {
+        200: jsonRefResponse(
+          OPENAPI_DESCRIPTIONS.OAUTH_AUTHORIZE_COMPLETE,
+          "#/components/schemas/OidcAuthorizeCompleteResponse",
+        ),
+        400: { description: OPENAPI_DESCRIPTIONS.INVALID_INPUT },
+        401: { description: OPENAPI_DESCRIPTIONS.UNAUTHORIZED },
+      },
+    },
+  },
+  [OPENAPI_PATHS.OAUTH_TOKEN]: {
+    post: {
+      summary: "Exchange OIDC authorization code for tokens",
+      tags: [OPENAPI_TAGS.SSO],
+      requestBody: {
+        required: true,
+        content: {
+          "application/json": {
+            schema: {
+              $ref: "#/components/schemas/OidcTokenRequest",
+            },
+          },
+          "application/x-www-form-urlencoded": {
+            schema: {
+              $ref: "#/components/schemas/OidcTokenRequest",
+            },
+          },
+        },
+      },
+      responses: {
+        200: jsonRefResponse(
+          OPENAPI_DESCRIPTIONS.OAUTH_TOKEN,
+          "#/components/schemas/OidcTokenResponse",
+        ),
+        400: { description: OPENAPI_DESCRIPTIONS.INVALID_INPUT },
+        401: { description: OPENAPI_DESCRIPTIONS.UNAUTHORIZED },
+      },
+    },
+  },
+  [OPENAPI_PATHS.OAUTH_USERINFO]: {
+    get: {
+      summary: "Fetch OIDC user claims using access token",
+      tags: [OPENAPI_TAGS.SSO],
+      responses: {
+        200: jsonRefResponse(
+          OPENAPI_DESCRIPTIONS.OAUTH_USERINFO,
+          "#/components/schemas/OidcUserInfoResponse",
+        ),
+        400: { description: OPENAPI_DESCRIPTIONS.INVALID_INPUT },
+        401: { description: OPENAPI_DESCRIPTIONS.UNAUTHORIZED },
+      },
+    },
+  },
+  [OPENAPI_PATHS.OAUTH_JWKS]: {
+    get: {
+      summary: "Get JWKS for OIDC token verification",
+      tags: [OPENAPI_TAGS.SSO],
+      responses: {
+        200: jsonRefResponse(
+          OPENAPI_DESCRIPTIONS.OAUTH_JWKS,
+          "#/components/schemas/OidcJwksResponse",
+        ),
+      },
+    },
+  },
+  [OPENAPI_PATHS.OAUTH_DISCOVERY]: {
+    get: {
+      summary: "Get OpenID Provider configuration",
+      tags: [OPENAPI_TAGS.SSO],
+      responses: {
+        200: jsonRefResponse(
+          OPENAPI_DESCRIPTIONS.OAUTH_DISCOVERY,
+          "#/components/schemas/OidcDiscoveryResponse",
+        ),
+      },
+    },
+  },
   [OPENAPI_PATHS.OAUTH_GOOGLE]: {
     get: {
       summary: "Start Google OAuth authorization flow",

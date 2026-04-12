@@ -15,6 +15,11 @@ import {
 } from "../audit/audit.service.js";
 import { buildRequestDevice } from "../auth/device.service.js";
 import {
+  completeOidcAuthorizeRequest,
+  exchangeOidcToken,
+  getOidcDiscoveryDocument,
+  getOidcJwks,
+  getOidcUserInfo,
   getOrganizationClientOauthStart,
   getOidcAuthorizeInitiation,
   handleOauthCallback,
@@ -32,8 +37,10 @@ import { COOKIE_NAMES } from "../../core/constants/cookie.constants.js";
 import { AUDIT_MESSAGES } from "../audit/audit.messages.js";
 import {
   confirmOrganizationOauthChallengeSchema,
+  oidcAuthorizeCompleteBodySchema,
   oidcAuthorizeInitQuerySchema,
   oidcAuthorizeQuerySchema,
+  oidcTokenBodySchema,
   organizationOauthCallbackQuerySchema,
   organizationOauthParamSchema,
   organizationOauthProvidersParamSchema,
@@ -74,6 +81,8 @@ export const oidcAuthorizeHandler = async (req, res) => {
     scope: query.scope,
     state: query.state,
     nonce: query.nonce,
+    codeChallenge: query.code_challenge,
+    codeChallengeMethod: query.code_challenge_method,
   });
 
   await emitAuditEvent({
@@ -90,6 +99,17 @@ export const oidcAuthorizeHandler = async (req, res) => {
   });
 
   res.redirect(result.redirectUrl);
+};
+
+export const oidcAuthorizeCompleteHandler = async (req, res) => {
+  const payload = oidcAuthorizeCompleteBodySchema.parse(req.body || {});
+
+  const result = await completeOidcAuthorizeRequest({
+    requestToken: payload.request,
+    userId: req.auth.sub,
+  });
+
+  res.status(200).json(result);
 };
 
 export const oidcAuthorizeInitHandler = async (req, res) => {
@@ -115,6 +135,38 @@ export const oidcAuthorizeInitHandler = async (req, res) => {
   });
 
   res.status(200).json(result);
+};
+
+export const oidcTokenHandler = async (req, res) => {
+  const payload = oidcTokenBodySchema.parse(req.body || {});
+
+  const result = await exchangeOidcToken({
+    body: payload,
+    authorizationHeader: req.headers.authorization,
+  });
+
+  res.status(200).json(result);
+};
+
+export const oidcUserInfoHandler = async (req, res) => {
+  const authorization = req.headers.authorization;
+
+  if (!authorization || !authorization.startsWith("Bearer ")) {
+    badRequest("Missing Bearer access token");
+  }
+
+  const token = authorization.slice("Bearer ".length).trim();
+  const result = await getOidcUserInfo(token);
+
+  res.status(200).json(result);
+};
+
+export const oidcJwksHandler = async (_req, res) => {
+  res.status(200).json(getOidcJwks());
+};
+
+export const oidcDiscoveryHandler = async (_req, res) => {
+  res.status(200).json(getOidcDiscoveryDocument());
 };
 
 export const oauthStartHandler = async (req, res) => {
@@ -305,6 +357,12 @@ export const organizationOauthCallbackHandler = async (req, res) => {
           [OAUTH_CALLBACK_QUERY_CHALLENGE_TOKEN]: result.challengeToken,
         }),
       );
+      return;
+    }
+
+    if (result.oidcCompleted) {
+      setAuthCookies(res, result, deviceInfo);
+      res.redirect(result.redirectTo);
       return;
     }
 

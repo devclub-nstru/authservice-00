@@ -409,6 +409,71 @@ export const OPENAPI_COMPONENTS = {
         },
       },
     },
+    OidcAuthorizeCompleteRequest: {
+      type: "object",
+      required: ["request"],
+      properties: {
+        request: { type: "string" },
+      },
+    },
+    OidcAuthorizeCompleteResponse: {
+      type: "object",
+      properties: {
+        code: { type: "string" },
+        redirectUrl: { type: "string", format: "uri" },
+      },
+    },
+    OidcTokenRequest: {
+      type: "object",
+      required: ["grant_type", "code", "redirect_uri"],
+      properties: {
+        grant_type: { type: "string", enum: ["authorization_code"] },
+        code: { type: "string" },
+        redirect_uri: { type: "string", format: "uri" },
+        client_id: { type: "string", format: "uuid" },
+        client_secret: { type: "string" },
+        code_verifier: { type: "string" },
+      },
+    },
+    OidcTokenResponse: {
+      type: "object",
+      properties: {
+        token_type: { type: "string", example: "Bearer" },
+        expires_in: { type: "integer", example: 900 },
+        access_token: { type: "string" },
+        id_token: { type: "string" },
+        scope: { type: "string", example: "openid profile email" },
+      },
+    },
+    OidcUserInfoResponse: {
+      type: "object",
+      properties: {
+        sub: { type: "string", format: "uuid" },
+        email: { type: "string", format: "email" },
+        email_verified: { type: "boolean" },
+        name: { type: "string", nullable: true },
+        picture: { type: "string", format: "uri", nullable: true },
+      },
+    },
+    OidcJwksResponse: {
+      type: "object",
+      properties: {
+        keys: {
+          type: "array",
+          items: { type: "object", additionalProperties: true },
+        },
+      },
+    },
+    OidcDiscoveryResponse: {
+      type: "object",
+      properties: {
+        issuer: { type: "string", format: "uri" },
+        authorization_endpoint: { type: "string", format: "uri" },
+        token_endpoint: { type: "string", format: "uri" },
+        userinfo_endpoint: { type: "string", format: "uri" },
+        jwks_uri: { type: "string", format: "uri" },
+      },
+    },
     OrganizationListResponse: {
       type: "object",
       properties: {

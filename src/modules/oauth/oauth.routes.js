@@ -1,10 +1,16 @@
 import { Router } from "express";
 import asyncHandler from "../../utils/async-handler.js";
+import { requireAuth } from "../auth/auth.middleware.js";
 import {
   confirmOrganizationOauthChallengeHandler,
   listOrganizationOauthProvidersHandler,
+  oidcAuthorizeCompleteHandler,
+  oidcDiscoveryHandler,
   oidcAuthorizeHandler,
   oidcAuthorizeInitHandler,
+  oidcJwksHandler,
+  oidcTokenHandler,
+  oidcUserInfoHandler,
   oauthCallbackHandler,
   oauthStartHandler,
   organizationOauthCallbackHandler,
@@ -15,10 +21,19 @@ import { OAUTH_PROVIDERS, OAUTH_ROUTE_PATHS } from "./oauth.constants.js";
 const router = Router();
 
 router.get(OAUTH_ROUTE_PATHS.AUTHORIZE, asyncHandler(oidcAuthorizeHandler));
+router.post(
+  OAUTH_ROUTE_PATHS.AUTHORIZE_COMPLETE,
+  requireAuth,
+  asyncHandler(oidcAuthorizeCompleteHandler),
+);
 router.get(
   OAUTH_ROUTE_PATHS.AUTHORIZE_INIT,
   asyncHandler(oidcAuthorizeInitHandler),
 );
+router.post(OAUTH_ROUTE_PATHS.TOKEN, asyncHandler(oidcTokenHandler));
+router.get(OAUTH_ROUTE_PATHS.USERINFO, asyncHandler(oidcUserInfoHandler));
+router.get(OAUTH_ROUTE_PATHS.JWKS, asyncHandler(oidcJwksHandler));
+router.get(OAUTH_ROUTE_PATHS.DISCOVERY, asyncHandler(oidcDiscoveryHandler));
 
 router.get(
   OAUTH_ROUTE_PATHS.ORG_CLIENT_PROVIDERS,

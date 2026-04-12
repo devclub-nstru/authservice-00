@@ -12,6 +12,7 @@ import authRoutes from "./src/modules/auth/auth.routes.js";
 import userRoutes from "./src/modules/user/user.routes.js";
 import oauthRoutes from "./src/modules/oauth/oauth.routes.js";
 import organizationRoutes from "./src/modules/organization/organization.routes.js";
+import { getOidcDiscoveryDocument } from "./src/modules/oauth/oauth.service.js";
 import {
   closeRedisConnection,
   ensureRedisConnection,
@@ -27,6 +28,7 @@ const app = express();
 
 app.use(requestContext);
 app.use(express.json());
+app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 app.use(morgan("dev"));
 app.use(
@@ -52,6 +54,10 @@ app.use(
 
 app.get("/api-docs.json", (req, res) => {
   res.status(200).json(swaggerSpec);
+});
+
+app.get("/.well-known/openid-configuration", (req, res) => {
+  res.status(200).json(getOidcDiscoveryDocument());
 });
 
 app.use("/api/auth", authRoutes);

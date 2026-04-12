@@ -1,6 +1,9 @@
+import crypto from "node:crypto";
+import fs from "node:fs";
 import db from "../../db/client/db.js";
 import env from "../../core/config/config.js";
 import {
+  findUserById,
   createUser,
   findUserByEmail,
   upsertOauthAccount,
@@ -16,13 +19,20 @@ import {
   getGithubAuthorizationUrl,
 } from "./providers/github.provider.js";
 import { createOrReuseUserSession } from "../auth/session.service.js";
-import { signAccessToken, signRefreshToken } from "../auth/token.service.js";
+import {
+  signAccessToken,
+  signRefreshToken,
+  verifyAccessToken,
+} from "../auth/token.service.js";
 import { AppError } from "../../utils/errors.js";
 import {
+  OAUTH_AUTHORIZE_CODE_CHALLENGE_METHODS,
   OAUTH_ERROR_CODES,
   OAUTH_ERRORS,
   OAUTH_FLOW_TYPES,
+  OAUTH_OIDC_GRANT_TYPES,
   OAUTH_PROVIDERS,
+  OAUTH_TOKEN_USE,
 } from "./oauth.constants.js";
 import {
   findActiveOrganizationClientProvider,
@@ -38,14 +48,116 @@ import {
   readOauthState,
 } from "./oauth-state.service.js";
 import {
+  consumeOidcAuthorizationCode,
+  issueOidcAuthorizationCode,
+} from "./oauth-code.service.js";
+import {
   consumeReloginChallenge,
   consumeReloginConfirmationRequirement,
   createReloginChallenge,
 } from "./oauth-challenge.service.js";
 import { findSession } from "../auth/session.service.js";
+import { comparePassword } from "../auth/password.service.js";
 
 const OIDC_AUTHORIZE_REQUEST_TYPE = "oidc_authorize_request";
 const OIDC_FRONTEND_AUTHORIZE_PATH = "/authorize";
+const OIDC_AUTHORIZATION_CODE_TTL_SECONDS = 120;
+const OIDC_DEFAULT_TOKEN_TTL_SECONDS = 900;
+const OIDC_SUPPORTED_SCOPES = ["openid", "profile", "email"];
+
+const normalizeScopeList = (scope) => {
+  if (!scope) {
+    return ["openid"];
+  }
+
+  const input = Array.isArray(scope) ? scope : String(scope).split(/\s+/);
+  const normalized = Array.from(
+    new Set(input.map((entry) => String(entry).trim()).filter(Boolean)),
+  );
+
+  if (!normalized.includes("openid")) {
+    normalized.unshift("openid");
+  }
+
+  return normalized.filter((value) => OIDC_SUPPORTED_SCOPES.includes(value));
+};
+
+const parseDurationToSeconds = (value) => {
+  const match = String(value || "")
+    .trim()
+    .match(/^(\d+)([smhd])$/i);
+  if (!match) {
+    return OIDC_DEFAULT_TOKEN_TTL_SECONDS;
+  }
+
+  const amount = Number(match[1]);
+  const unit = match[2].toLowerCase();
+
+  if (unit === "s") return amount;
+  if (unit === "m") return amount * 60;
+  if (unit === "h") return amount * 3600;
+  if (unit === "d") return amount * 86400;
+
+  return OIDC_DEFAULT_TOKEN_TTL_SECONDS;
+};
+
+const ACCESS_TOKEN_TTL_SECONDS = parseDurationToSeconds(env.ACCESS_TOKEN_TTL);
+
+const extractBasicClientCredentials = (authorizationHeader) => {
+  if (!authorizationHeader || !authorizationHeader.startsWith("Basic ")) {
+    return null;
+  }
+
+  const encoded = authorizationHeader.slice("Basic ".length).trim();
+  if (!encoded) {
+    return null;
+  }
+
+  try {
+    const decoded = Buffer.from(encoded, "base64").toString("utf8");
+    const delimiterIndex = decoded.indexOf(":");
+    if (delimiterIndex <= 0) {
+      return null;
+    }
+
+    return {
+      clientId: decoded.slice(0, delimiterIndex),
+      clientSecret: decoded.slice(delimiterIndex + 1),
+    };
+  } catch {
+    return null;
+  }
+};
+
+const buildOidcAuthorizationRedirectUrl = ({ redirectUri, code, state }) => {
+  const url = new URL(redirectUri);
+  url.searchParams.set("code", code);
+
+  if (state) {
+    url.searchParams.set("state", state);
+  }
+
+  return url.toString();
+};
+
+const buildJwksKey = () => {
+  const pem = fs.readFileSync(env.ACCESS_TOKEN_PUBLIC_KEY_PATH, "utf8");
+  const keyObject = crypto.createPublicKey(pem);
+  const exported = keyObject.export({ format: "jwk" });
+  const kid = crypto
+    .createHash("sha256")
+    .update(`${exported.n}:${exported.e}`)
+    .digest("base64url");
+
+  return {
+    ...exported,
+    use: "sig",
+    alg: "RS256",
+    kid,
+  };
+};
+
+const OIDC_JWKS_KEY = buildJwksKey();
 
 const getProviderAuthorizationUrl = (provider, credentials = {}) => {
   if (provider === OAUTH_PROVIDERS.GOOGLE) {
@@ -252,6 +364,8 @@ export const startOidcAuthorize = async ({
   scope,
   state,
   nonce,
+  codeChallenge,
+  codeChallengeMethod,
 }) => {
   if (responseType !== "code") {
     throw new AppError(OAUTH_ERRORS.INVALID_RESPONSE_TYPE, 400, {
@@ -271,15 +385,40 @@ export const startOidcAuthorize = async ({
     client.redirectUris,
   );
 
+  const normalizedScopes = normalizeScopeList(scope);
+
+  if (codeChallengeMethod && !codeChallenge) {
+    throw new AppError(OAUTH_ERRORS.UNSUPPORTED_CODE_CHALLENGE_METHOD, 400, {
+      code: OAUTH_ERROR_CODES.UNSUPPORTED_CODE_CHALLENGE_METHOD,
+    });
+  }
+
+  if (codeChallenge && !codeChallengeMethod) {
+    throw new AppError(OAUTH_ERRORS.UNSUPPORTED_CODE_CHALLENGE_METHOD, 400, {
+      code: OAUTH_ERROR_CODES.UNSUPPORTED_CODE_CHALLENGE_METHOD,
+    });
+  }
+
+  if (
+    codeChallengeMethod &&
+    codeChallengeMethod !== OAUTH_AUTHORIZE_CODE_CHALLENGE_METHODS.S256
+  ) {
+    throw new AppError(OAUTH_ERRORS.UNSUPPORTED_CODE_CHALLENGE_METHOD, 400, {
+      code: OAUTH_ERROR_CODES.UNSUPPORTED_CODE_CHALLENGE_METHOD,
+    });
+  }
+
   const requestToken = await createOauthState({
     type: OIDC_AUTHORIZE_REQUEST_TYPE,
     responseType,
     clientId: client.id,
     orgId: client.orgId,
     redirectUri: normalizedRedirectUri,
-    scope,
-    state,
-    nonce,
+    scope: normalizedScopes,
+    state: state || null,
+    nonce: nonce || null,
+    codeChallenge: codeChallenge || null,
+    codeChallengeMethod: codeChallengeMethod || null,
   });
 
   return {
@@ -329,6 +468,8 @@ export const getOidcAuthorizeInitiation = async ({ requestToken }) => {
           scope: request.scope,
           state: request.state,
           nonce: request.nonce,
+          codeChallenge: request.codeChallenge,
+          codeChallengeMethod: request.codeChallengeMethod,
         },
       });
 
@@ -352,8 +493,302 @@ export const getOidcAuthorizeInitiation = async ({ requestToken }) => {
       scope: request.scope,
       state: request.state,
       nonce: request.nonce,
+      codeChallenge: request.codeChallenge,
+      codeChallengeMethod: request.codeChallengeMethod,
     },
     providers: providerLinks,
+  };
+};
+
+const buildOidcAccessTokenPayload = ({ userId, clientId, scope }) => {
+  return {
+    iss: env.API_BASE_URL,
+    aud: clientId,
+    sub: userId,
+    client_id: clientId,
+    token_use: OAUTH_TOKEN_USE.OIDC_ACCESS,
+    scope: scope.join(" "),
+  };
+};
+
+const buildOidcIdTokenPayload = ({
+  user,
+  clientId,
+  scope,
+  nonce,
+  authenticatedAt,
+}) => {
+  const payload = {
+    iss: env.API_BASE_URL,
+    aud: clientId,
+    sub: user.id,
+    auth_time: Math.floor(new Date(authenticatedAt).getTime() / 1000),
+  };
+
+  if (nonce) {
+    payload.nonce = nonce;
+  }
+
+  if (scope.includes("email")) {
+    payload.email = user.email;
+    payload.email_verified = Boolean(user.emailVerified);
+  }
+
+  if (scope.includes("profile")) {
+    payload.name = user.name || undefined;
+    payload.picture = user.avatarUrl || undefined;
+  }
+
+  return payload;
+};
+
+const issueAuthorizationCodeForRequest = async ({ request, userId }) => {
+  const client = await findOrganizationClientById(
+    request.orgId,
+    request.clientId,
+  );
+  if (!client) {
+    throw new AppError(OAUTH_ERRORS.INVALID_CLIENT, 404, {
+      code: OAUTH_ERROR_CODES.INVALID_CLIENT,
+    });
+  }
+
+  const normalizedRedirectUri = validateClientRedirectUri(
+    request.redirectUri,
+    client.redirectUris,
+  );
+
+  await upsertOrganizationClientUser(client.id, userId);
+
+  const code = await issueOidcAuthorizationCode({
+    type: OIDC_AUTHORIZE_REQUEST_TYPE,
+    clientId: client.id,
+    orgId: client.orgId,
+    userId,
+    redirectUri: normalizedRedirectUri,
+    scope: normalizeScopeList(request.scope),
+    state: request.state || null,
+    nonce: request.nonce || null,
+    codeChallenge: request.codeChallenge || null,
+    codeChallengeMethod: request.codeChallengeMethod || null,
+    authenticatedAt: new Date().toISOString(),
+  });
+
+  return {
+    code,
+    redirectUrl: buildOidcAuthorizationRedirectUrl({
+      redirectUri: normalizedRedirectUri,
+      code,
+      state: request.state,
+    }),
+  };
+};
+
+export const completeOidcAuthorizeRequest = async ({
+  requestToken,
+  userId,
+}) => {
+  const request = await consumeOauthState(requestToken);
+  if (!request || request.type !== OIDC_AUTHORIZE_REQUEST_TYPE) {
+    throw new AppError(OAUTH_ERRORS.INVALID_REQUEST_REFERENCE, 400, {
+      code: OAUTH_ERROR_CODES.INVALID_REQUEST_REFERENCE,
+    });
+  }
+
+  return issueAuthorizationCodeForRequest({ request, userId });
+};
+
+export const exchangeOidcToken = async ({ body, authorizationHeader }) => {
+  if (body.grant_type !== OAUTH_OIDC_GRANT_TYPES.AUTHORIZATION_CODE) {
+    throw new AppError(OAUTH_ERRORS.UNSUPPORTED_GRANT_TYPE, 400, {
+      code: OAUTH_ERROR_CODES.UNSUPPORTED_GRANT_TYPE,
+    });
+  }
+
+  const basicCredentials = extractBasicClientCredentials(authorizationHeader);
+  const clientId = basicCredentials?.clientId || body.client_id;
+  const clientSecret = basicCredentials?.clientSecret || body.client_secret;
+
+  if (!clientId || !clientSecret) {
+    throw new AppError(OAUTH_ERRORS.INVALID_CLIENT_SECRET, 401, {
+      code: OAUTH_ERROR_CODES.INVALID_CLIENT_SECRET,
+    });
+  }
+
+  const client = await findOrganizationClientByClientId(clientId);
+  if (!client || !client.clientSecretHash) {
+    throw new AppError(OAUTH_ERRORS.INVALID_CLIENT, 401, {
+      code: OAUTH_ERROR_CODES.INVALID_CLIENT,
+    });
+  }
+
+  const validSecret = await comparePassword(
+    clientSecret,
+    client.clientSecretHash,
+  );
+  if (!validSecret) {
+    throw new AppError(OAUTH_ERRORS.INVALID_CLIENT_SECRET, 401, {
+      code: OAUTH_ERROR_CODES.INVALID_CLIENT_SECRET,
+    });
+  }
+
+  const codePayload = await consumeOidcAuthorizationCode(body.code);
+  if (!codePayload || codePayload.type !== OIDC_AUTHORIZE_REQUEST_TYPE) {
+    throw new AppError(OAUTH_ERRORS.INVALID_GRANT, 400, {
+      code: OAUTH_ERROR_CODES.INVALID_GRANT,
+    });
+  }
+
+  if (codePayload.clientId !== client.id) {
+    throw new AppError(OAUTH_ERRORS.INVALID_GRANT, 400, {
+      code: OAUTH_ERROR_CODES.INVALID_GRANT,
+    });
+  }
+
+  const normalizedRedirectUri = validateClientRedirectUri(
+    body.redirect_uri,
+    client.redirectUris,
+  );
+  if (normalizedRedirectUri !== codePayload.redirectUri) {
+    throw new AppError(OAUTH_ERRORS.INVALID_GRANT, 400, {
+      code: OAUTH_ERROR_CODES.INVALID_GRANT,
+    });
+  }
+
+  if (codePayload.codeChallenge || codePayload.codeChallengeMethod) {
+    if (
+      codePayload.codeChallengeMethod !==
+      OAUTH_AUTHORIZE_CODE_CHALLENGE_METHODS.S256
+    ) {
+      throw new AppError(OAUTH_ERRORS.UNSUPPORTED_CODE_CHALLENGE_METHOD, 400, {
+        code: OAUTH_ERROR_CODES.UNSUPPORTED_CODE_CHALLENGE_METHOD,
+      });
+    }
+
+    if (!body.code_verifier) {
+      throw new AppError(OAUTH_ERRORS.INVALID_CODE_VERIFIER, 400, {
+        code: OAUTH_ERROR_CODES.INVALID_CODE_VERIFIER,
+      });
+    }
+
+    const computedChallenge = crypto
+      .createHash("sha256")
+      .update(body.code_verifier)
+      .digest("base64url");
+
+    if (computedChallenge !== codePayload.codeChallenge) {
+      throw new AppError(OAUTH_ERRORS.INVALID_CODE_VERIFIER, 400, {
+        code: OAUTH_ERROR_CODES.INVALID_CODE_VERIFIER,
+      });
+    }
+  }
+
+  const user = await findUserById(codePayload.userId);
+  if (!user) {
+    throw new AppError(OAUTH_ERRORS.INVALID_GRANT, 400, {
+      code: OAUTH_ERROR_CODES.INVALID_GRANT,
+    });
+  }
+
+  const scope = normalizeScopeList(codePayload.scope);
+  const accessToken = signAccessToken(
+    buildOidcAccessTokenPayload({
+      userId: user.id,
+      clientId: client.id,
+      scope,
+    }),
+  );
+  const idToken = signAccessToken(
+    buildOidcIdTokenPayload({
+      user,
+      clientId: client.id,
+      scope,
+      nonce: codePayload.nonce,
+      authenticatedAt: codePayload.authenticatedAt || codePayload.issuedAt,
+    }),
+  );
+
+  return {
+    token_type: "Bearer",
+    expires_in: ACCESS_TOKEN_TTL_SECONDS,
+    access_token: accessToken,
+    id_token: idToken,
+    scope: scope.join(" "),
+  };
+};
+
+export const getOidcUserInfo = async (accessToken) => {
+  const payload = verifyAccessToken(accessToken);
+
+  if (payload?.token_use !== OAUTH_TOKEN_USE.OIDC_ACCESS) {
+    throw new AppError(OAUTH_ERRORS.INVALID_GRANT, 401, {
+      code: OAUTH_ERROR_CODES.INVALID_GRANT,
+    });
+  }
+
+  const user = await findUserById(payload.sub);
+  if (!user) {
+    throw new AppError(OAUTH_ERRORS.INVALID_GRANT, 401, {
+      code: OAUTH_ERROR_CODES.INVALID_GRANT,
+    });
+  }
+
+  const scope = normalizeScopeList(payload.scope);
+  const response = {
+    sub: user.id,
+  };
+
+  if (scope.includes("email")) {
+    response.email = user.email;
+    response.email_verified = Boolean(user.emailVerified);
+  }
+
+  if (scope.includes("profile")) {
+    response.name = user.name;
+    response.picture = user.avatarUrl;
+  }
+
+  return response;
+};
+
+export const getOidcJwks = () => {
+  return {
+    keys: [OIDC_JWKS_KEY],
+  };
+};
+
+export const getOidcDiscoveryDocument = () => {
+  return {
+    issuer: env.API_BASE_URL,
+    authorization_endpoint: `${env.API_BASE_URL}/api/oauth/authorize`,
+    token_endpoint: `${env.API_BASE_URL}/api/oauth/token`,
+    userinfo_endpoint: `${env.API_BASE_URL}/api/oauth/userinfo`,
+    jwks_uri: `${env.API_BASE_URL}/api/oauth/jwks`,
+    response_types_supported: ["code"],
+    grant_types_supported: [OAUTH_OIDC_GRANT_TYPES.AUTHORIZATION_CODE],
+    subject_types_supported: ["public"],
+    id_token_signing_alg_values_supported: ["RS256"],
+    scopes_supported: OIDC_SUPPORTED_SCOPES,
+    claims_supported: [
+      "sub",
+      "aud",
+      "iss",
+      "exp",
+      "iat",
+      "auth_time",
+      "nonce",
+      "email",
+      "email_verified",
+      "name",
+      "picture",
+    ],
+    token_endpoint_auth_methods_supported: [
+      "client_secret_basic",
+      "client_secret_post",
+    ],
+    code_challenge_methods_supported: [
+      OAUTH_AUTHORIZE_CODE_CHALLENGE_METHODS.S256,
+    ],
   };
 };
 
@@ -506,6 +941,32 @@ export const handleOrganizationClientOauthCallback = async ({
     clientId,
     userId: authResult.user.id,
   });
+
+  if (state.oidcContext) {
+    const authorizationResult = await issueAuthorizationCodeForRequest({
+      request: {
+        type: OIDC_AUTHORIZE_REQUEST_TYPE,
+        orgId,
+        clientId,
+        redirectUri: state.returnTo,
+        scope: state.oidcContext.scope,
+        state: state.oidcContext.state,
+        nonce: state.oidcContext.nonce,
+        codeChallenge: state.oidcContext.codeChallenge,
+        codeChallengeMethod: state.oidcContext.codeChallengeMethod,
+      },
+      userId: authResult.user.id,
+    });
+
+    return {
+      ...authResult,
+      redirectTo: authorizationResult.redirectUrl,
+      flowType: state.flowType,
+      clientContext: state.clientContext,
+      confirmationRequired: false,
+      oidcCompleted: true,
+    };
+  }
 
   if (reloginRequirement) {
     const challengeToken = await createReloginChallenge({

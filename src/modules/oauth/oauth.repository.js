@@ -11,6 +11,12 @@ export const findUserByEmail = async (email, tx = db) => {
   return user || null;
 };
 
+export const findUserById = async (id, tx = db) => {
+  const [user] = await tx.select().from(users).where(eq(users.id, id)).limit(1);
+
+  return user || null;
+};
+
 export const createUser = async (payload, tx = db) => {
   const [created] = await tx.insert(users).values(payload).returning();
   return created;

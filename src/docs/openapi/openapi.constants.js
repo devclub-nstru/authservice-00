@@ -55,6 +55,12 @@ export const OPENAPI_DESCRIPTIONS = {
   OAUTH_AUTHORIZE: "Validate OIDC authorize request and redirect to frontend",
   OAUTH_AUTHORIZE_INIT:
     "Fetch configured providers and authorization URLs for OIDC initiation",
+  OAUTH_AUTHORIZE_COMPLETE:
+    "Complete authorization for authenticated user and issue authorization code redirect",
+  OAUTH_TOKEN: "Exchange authorization code for OIDC tokens",
+  OAUTH_USERINFO: "Fetch OIDC userinfo claims from access token",
+  OAUTH_JWKS: "Get JWKS used to verify OIDC tokens",
+  OAUTH_DISCOVERY: "Get OIDC discovery configuration",
   OAUTH_ORG_CLIENT_START: "Redirect to org-client provider authorization page",
   OAUTH_ORG_CLIENT_CALLBACK:
     "Handle org-client OAuth callback and continue auth flow",
@@ -111,6 +117,11 @@ export const OPENAPI_PATHS = {
   OAUTH_GITHUB_CALLBACK: "/api/oauth/github/callback",
   OAUTH_AUTHORIZE: "/api/oauth/authorize",
   OAUTH_AUTHORIZE_INIT: "/api/oauth/authorize/init",
+  OAUTH_AUTHORIZE_COMPLETE: "/api/oauth/authorize/complete",
+  OAUTH_TOKEN: "/api/oauth/token",
+  OAUTH_USERINFO: "/api/oauth/userinfo",
+  OAUTH_JWKS: "/api/oauth/jwks",
+  OAUTH_DISCOVERY: "/.well-known/openid-configuration",
   OAUTH_ORG_CLIENT_PROVIDERS:
     "/api/oauth/orgs/{orgId}/clients/{clientId}/providers",
   OAUTH_ORG_CLIENT_START:
