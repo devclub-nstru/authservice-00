@@ -1,8 +1,9 @@
 import crypto from "node:crypto";
 import { getRedisClient } from "../../core/config/redis.js";
-
-const OIDC_CODE_KEY_PREFIX = "oidc:code";
-const OIDC_AUTHORIZATION_CODE_TTL_SECONDS = 120;
+import {
+  OIDC_AUTHORIZATION_CODE_TTL_SECONDS,
+  OIDC_CODE_KEY_PREFIX,
+} from "./oauth.constants.js";
 
 const getCodeKey = (code) => {
   return `${OIDC_CODE_KEY_PREFIX}:${code}`;

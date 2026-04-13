@@ -1,8 +1,10 @@
 import { z } from "zod";
 import {
+  ORGANIZATION_DEFAULTS,
   ORGANIZATION_NAME_LIMITS,
   ORGANIZATION_NON_OWNER_ROLE_VALUES,
   ORGANIZATION_ROLE_VALUES,
+  ORGANIZATION_TOKEN_LIMITS,
 } from "../../modules/organization/organization.constants.js";
 
 const roleSchema = z.enum(ORGANIZATION_ROLE_VALUES);
@@ -44,15 +46,15 @@ export const inviteIdParamSchema = z.object({
 
 export const createOrganizationInviteSchema = z.object({
   email: z.string().email(),
-  role: roleSchema.default("member"),
+  role: roleSchema.default(ORGANIZATION_DEFAULTS.INVITE_ROLE),
 });
 
 export const acceptOrganizationInviteSchema = z.object({
-  token: z.string().min(16),
+  token: z.string().min(ORGANIZATION_TOKEN_LIMITS.INVITE_TOKEN_MIN_LENGTH),
 });
 
 export const inviteTokenParamSchema = z.object({
-  token: z.string().min(16),
+  token: z.string().min(ORGANIZATION_TOKEN_LIMITS.INVITE_TOKEN_MIN_LENGTH),
 });
 
 export const updateOrganizationMemberRoleSchema = z.object({
@@ -61,5 +63,7 @@ export const updateOrganizationMemberRoleSchema = z.object({
 
 export const transferOrganizationOwnershipSchema = z.object({
   targetUserId: z.string().uuid(),
-  previousOwnerRole: nonOwnerRoleSchema.default("admin"),
+  previousOwnerRole: nonOwnerRoleSchema.default(
+    ORGANIZATION_DEFAULTS.PREVIOUS_OWNER_ROLE,
+  ),
 });

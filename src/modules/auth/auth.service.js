@@ -166,20 +166,31 @@ export const login = async (input, deviceInfo) => {
     unauthorized(AUTH_ERRORS.INVALID_CREDENTIALS);
   }
 
-  const knownDevice = await findSessionByUserAndDevice(
-    user.id,
-    deviceInfo.deviceId,
-  );
+  const { knownDevice, session } = await db.transaction(async (tx) => {
+    const existingDeviceSession = await findSessionByUserAndDevice(
+      user.id,
+      deviceInfo.deviceId,
+      tx,
+    );
 
-  const session = await createOrReuseUserSession({
-    userId: user.id,
-    orgId: null,
-    deviceId: deviceInfo.deviceId,
-    userAgent: deviceInfo.userAgent,
-    ipAddress: deviceInfo.ipAddress,
+    const nextSession = await createOrReuseUserSession(
+      {
+        userId: user.id,
+        orgId: null,
+        deviceId: deviceInfo.deviceId,
+        userAgent: deviceInfo.userAgent,
+        ipAddress: deviceInfo.ipAddress,
+      },
+      tx,
+    );
+
+    await updateUserById(user.id, { lastLoginAt: new Date() }, tx);
+
+    return {
+      knownDevice: existingDeviceSession,
+      session: nextSession,
+    };
   });
-
-  await updateUserById(user.id, { lastLoginAt: new Date() });
 
   if (!knownDevice) {
     await deviceAlertQueue.add(QUEUE_JOB_NAMES.NEW_DEVICE_ALERT, {
@@ -266,7 +277,13 @@ export const refreshAuth = async (refreshToken) => {
     unauthorized(AUTH_ERRORS.SESSION_EXPIRED);
   }
 
+  if (currentSession.userId !== payload.sub) {
+    await revokeSession(currentSession.userId, currentSession.id);
+    unauthorized(AUTH_ERRORS.SESSION_VERSION_MISMATCH);
+  }
+
   if (currentSession.version !== payload.ver) {
+    await revokeSession(currentSession.userId, currentSession.id);
     unauthorized(AUTH_ERRORS.SESSION_VERSION_MISMATCH);
   }
 
@@ -275,7 +292,8 @@ export const refreshAuth = async (refreshToken) => {
     currentSession.version,
   );
   if (!rotated) {
-    unauthorized(AUTH_ERRORS.SESSION_REFRESH_FAILED);
+    await revokeSession(currentSession.userId, currentSession.id);
+    unauthorized(AUTH_ERRORS.SESSION_VERSION_MISMATCH);
   }
 
   const tokens = issueAuthTokens({

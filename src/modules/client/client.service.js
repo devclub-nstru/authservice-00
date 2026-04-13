@@ -16,11 +16,12 @@ import {
   findOrganizationById,
   findOrganizationMember,
 } from "../organization/organization.repository.js";
-import { ORGANIZATION_ROLES } from "../organization/organization.constants.js";
 import {
   CLIENT_CALLBACK_BASE_PATH,
   CLIENT_ERRORS,
+  CLIENT_MANAGE_ROLES,
   CLIENT_MESSAGES,
+  CLIENT_SECRET_BYTES,
 } from "./client.constants.js";
 import {
   createOrganizationClient,
@@ -39,20 +40,15 @@ import {
   updateOrganizationClientProvider,
 } from "./client.repository.js";
 
-const CLIENT_MANAGE_ROLES = [
-  ORGANIZATION_ROLES.OWNER,
-  ORGANIZATION_ROLES.ADMIN,
-];
-
 const normalizeName = (name) => name.trim().replace(/\s+/g, " ");
 const normalizeForUniqueness = (value) => value.trim().toLowerCase();
 
 const generatePlatformClientSecret = () => {
-  return crypto.randomBytes(32).toString("base64url");
+  return crypto.randomBytes(CLIENT_SECRET_BYTES).toString("base64url");
 };
 
 const generateWebhookSecret = () => {
-  return crypto.randomBytes(32).toString("base64url");
+  return crypto.randomBytes(CLIENT_SECRET_BYTES).toString("base64url");
 };
 
 const normalizeAuthorizedOrigins = (authorizedOrigins) => {

@@ -172,7 +172,7 @@ export const oidcDiscoveryHandler = async (_req, res) => {
 export const oauthStartHandler = async (req, res) => {
   const provider = req.params.provider;
   const auditContext = buildAuditContextFromRequest(req);
-  const redirectUrl = getOauthStartUrl(provider);
+  const redirectUrl = await getOauthStartUrl(provider);
 
   await emitAuditEvent({
     ...auditContext,
@@ -191,6 +191,7 @@ export const oauthStartHandler = async (req, res) => {
 export const oauthCallbackHandler = async (req, res) => {
   const provider = req.params.provider;
   const code = req.query[OAUTH_CALLBACK_QUERY_CODE];
+  const stateToken = req.query[OAUTH_CALLBACK_QUERY_STATE];
   const auditContext = buildAuditContextFromRequest(req);
 
   if (!code || typeof code !== "string") {
@@ -209,11 +210,29 @@ export const oauthCallbackHandler = async (req, res) => {
     badRequest(OAUTH_ERRORS.MISSING_CODE);
   }
 
+  if (!stateToken || typeof stateToken !== "string") {
+    await emitAuditEvent({
+      ...auditContext,
+      event: AUDIT_EVENTS.OAUTH_CALLBACK_FAILED,
+      category: AUDIT_CATEGORY.OAUTH,
+      status: AUDIT_STATUS.FAILURE,
+      severity: "warn",
+      message: AUDIT_MESSAGES.OAUTH_CALLBACK_FAILED,
+      metadata: {
+        provider,
+        reason: OAUTH_ERRORS.MISSING_STATE,
+      },
+    });
+
+    badRequest(OAUTH_ERRORS.MISSING_STATE);
+  }
+
   try {
     const deviceInfo = buildRequestDevice(req);
     const result = await handleOauthCallback({
       provider,
       code,
+      stateToken,
       deviceInfo,
     });
 

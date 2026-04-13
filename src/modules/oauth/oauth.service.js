@@ -26,6 +26,11 @@ import {
 } from "../auth/token.service.js";
 import { AppError } from "../../utils/errors.js";
 import {
+  DIRECT_OAUTH_STATE_TYPE,
+  OIDC_AUTHORIZE_REQUEST_TYPE,
+  OIDC_DEFAULT_TOKEN_TTL_SECONDS,
+  OIDC_FRONTEND_AUTHORIZE_PATH,
+  OIDC_SUPPORTED_SCOPES,
   OAUTH_AUTHORIZE_CODE_CHALLENGE_METHODS,
   OAUTH_ERROR_CODES,
   OAUTH_ERRORS,
@@ -58,12 +63,6 @@ import {
 } from "./oauth-challenge.service.js";
 import { findSession } from "../auth/session.service.js";
 import { comparePassword } from "../auth/password.service.js";
-
-const OIDC_AUTHORIZE_REQUEST_TYPE = "oidc_authorize_request";
-const OIDC_FRONTEND_AUTHORIZE_PATH = "/authorize";
-const OIDC_AUTHORIZATION_CODE_TTL_SECONDS = 120;
-const OIDC_DEFAULT_TOKEN_TTL_SECONDS = 900;
-const OIDC_SUPPORTED_SCOPES = ["openid", "profile", "email"];
 
 const normalizeScopeList = (scope) => {
   if (!scope) {
@@ -205,8 +204,15 @@ const getProviderProfile = async (provider, code, credentials = {}) => {
   });
 };
 
-export const getOauthStartUrl = (provider) => {
-  return getProviderAuthorizationUrl(provider);
+export const getOauthStartUrl = async (provider) => {
+  const stateToken = await createOauthState({
+    type: DIRECT_OAUTH_STATE_TYPE,
+    provider,
+  });
+
+  return getProviderAuthorizationUrl(provider, {
+    state: stateToken,
+  });
 };
 
 const validateReturnTo = (returnTo, redirectUris) => {
@@ -868,7 +874,31 @@ export const getOrganizationClientOauthStart = async ({
   };
 };
 
-export const handleOauthCallback = async ({ provider, code, deviceInfo }) => {
+export const handleOauthCallback = async ({
+  provider,
+  code,
+  stateToken,
+  deviceInfo,
+}) => {
+  if (!stateToken) {
+    throw new AppError(OAUTH_ERRORS.MISSING_STATE, 400, {
+      code: OAUTH_ERROR_CODES.INVALID_STATE,
+    });
+  }
+
+  const state = await consumeOauthState(stateToken);
+  if (!state || state.type !== DIRECT_OAUTH_STATE_TYPE) {
+    throw new AppError(OAUTH_ERRORS.INVALID_STATE, 400, {
+      code: OAUTH_ERROR_CODES.INVALID_STATE,
+    });
+  }
+
+  if (state.provider !== provider) {
+    throw new AppError(OAUTH_ERRORS.STATE_MISMATCH, 400, {
+      code: OAUTH_ERROR_CODES.INVALID_STATE,
+    });
+  }
+
   const providerData = await getProviderProfile(provider, code);
   const result = await completeOauthAuthSession({
     provider,

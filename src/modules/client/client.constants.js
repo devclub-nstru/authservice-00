@@ -1,4 +1,5 @@
 import { OAUTH_PROVIDERS } from "../oauth/oauth.constants.js";
+import { ORGANIZATION_ROLES } from "../organization/organization.constants.js";
 
 export const CLIENT_ALLOWED_PROVIDERS = [
   OAUTH_PROVIDERS.GOOGLE,
@@ -6,6 +7,47 @@ export const CLIENT_ALLOWED_PROVIDERS = [
 ];
 
 export const CLIENT_CALLBACK_BASE_PATH = "/api/oauth/orgs";
+
+export const CLIENT_SECRET_BYTES = 32;
+
+export const CLIENT_MANAGE_ROLES = [
+  ORGANIZATION_ROLES.OWNER,
+  ORGANIZATION_ROLES.ADMIN,
+];
+
+export const CLIENT_NAME_LIMITS = {
+  MIN: 2,
+  MAX: 255,
+};
+
+export const CLIENT_REDIRECT_URIS_LIMITS = {
+  MIN: 1,
+  MAX: 30,
+};
+
+export const CLIENT_AUTHORIZED_ORIGINS_LIMITS = {
+  MAX: 30,
+};
+
+export const CLIENT_PROVIDER_CREDENTIAL_LIMITS = {
+  ID_MIN: 1,
+  ID_MAX: 255,
+  SECRET_MIN: 8,
+  SECRET_MAX: 255,
+};
+
+export const CLIENT_USER_LIST_PAGINATION = {
+  DEFAULT_LIMIT: 50,
+  MAX_LIMIT: 200,
+  DEFAULT_OFFSET: 0,
+};
+
+export const CLIENT_SECRET_CRYPTO = {
+  ENCRYPTION_ALGORITHM: "aes-256-gcm",
+  IV_BYTES: 12,
+  AUTH_TAG_BYTES: 16,
+  ENCRYPTION_KEY_BYTES: 32,
+};
 
 export const CLIENT_ERRORS = {
   ORGANIZATION_NOT_FOUND: "Organization not found",

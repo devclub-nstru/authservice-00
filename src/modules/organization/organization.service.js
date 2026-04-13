@@ -35,6 +35,7 @@ import {
   updateOrganizationById,
 } from "./organization.repository.js";
 import {
+  ORGANIZATION_DEFAULTS,
   ORGANIZATION_ERRORS,
   ORGANIZATION_INVITE_TTL_MS,
   ORGANIZATION_MESSAGES,
@@ -93,7 +94,7 @@ const ensureUniqueOrganizationName = async (
 };
 
 const generateUniqueSlug = async (name, excludeOrgId = null, tx = db) => {
-  const baseSlug = slugifyBase(name) || "organization";
+  const baseSlug = slugifyBase(name) || ORGANIZATION_DEFAULTS.SLUG_FALLBACK;
   let candidate = baseSlug;
   let counter = 2;
 

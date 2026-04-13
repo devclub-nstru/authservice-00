@@ -3,6 +3,16 @@ export const OAUTH_PROVIDERS = {
   GITHUB: "github",
 };
 
+export const OAUTH_STATE_KEY_PREFIX = "oauth:state";
+export const OIDC_CODE_KEY_PREFIX = "oidc:code";
+
+export const OIDC_AUTHORIZE_REQUEST_TYPE = "oidc_authorize_request";
+export const DIRECT_OAUTH_STATE_TYPE = "direct_oauth_state";
+export const OIDC_FRONTEND_AUTHORIZE_PATH = "/authorize";
+export const OIDC_AUTHORIZATION_CODE_TTL_SECONDS = 120;
+export const OIDC_DEFAULT_TOKEN_TTL_SECONDS = 900;
+export const OIDC_SUPPORTED_SCOPES = ["openid", "profile", "email"];
+
 export const OAUTH_ERRORS = {
   INVALID_PROVIDER: "Unsupported OAuth provider",
   MISSING_EMAIL: "OAuth provider did not return an email",

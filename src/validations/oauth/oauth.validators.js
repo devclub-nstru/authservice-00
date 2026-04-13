@@ -3,10 +3,9 @@ import {
   OAUTH_AUTHORIZE_CODE_CHALLENGE_METHODS,
   OAUTH_FLOW_TYPES,
   OAUTH_OIDC_GRANT_TYPES,
+  OIDC_SUPPORTED_SCOPES,
   OAUTH_PROVIDERS,
 } from "../../modules/oauth/oauth.constants.js";
-
-const OIDC_ALLOWED_SCOPES = ["openid", "profile", "email"];
 
 const normalizeScope = (scopeValue) => {
   const normalized = String(scopeValue || "")
@@ -63,7 +62,8 @@ export const oidcAuthorizeQuerySchema = z.object({
       message: "scope must include openid",
     })
     .refine(
-      (scopes) => scopes.every((scope) => OIDC_ALLOWED_SCOPES.includes(scope)),
+      (scopes) =>
+        scopes.every((scope) => OIDC_SUPPORTED_SCOPES.includes(scope)),
       {
         message: "scope contains unsupported values",
       },

@@ -33,3 +33,30 @@ export const AUTH_ROUTE_PATHS = {
   VERIFY_EMAIL: "/api/auth/verify-email",
   FRONTEND_RESET_PASSWORD: "/reset-password",
 };
+
+export const AUTH_PASSWORD_COMPLEXITY_REGEX =
+  /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z\d]).{8,}$/;
+
+export const AUTH_PASSWORD_COMPLEXITY_MESSAGE =
+  "Password must be at least 8 characters and include upper, lower, number, and symbol";
+
+export const AUTH_PROFILE_NAME_LIMITS = {
+  MIN: 1,
+  MAX: 255,
+};
+
+export const AUTH_CLIENT_CONTEXT_LIMITS = {
+  MIN: 1,
+  MAX: 255,
+};
+
+export const AUTH_ONE_TIME_TOKEN_MIN_LENGTH = 16;
+
+export const AUTH_DEVICE_CONSTANTS = {
+  DEFAULT_USER_AGENT: "unknown",
+  DEFAULT_IP_ADDRESS: "0.0.0.0",
+  DEVICE_ID_HASH_ALGORITHM: "sha256",
+  GENERATED_DEVICE_ID_BYTES: 24,
+  MIN_DEVICE_ID_LENGTH: 8,
+  MAX_DEVICE_ID_LENGTH: 255,
+};

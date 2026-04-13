@@ -31,6 +31,16 @@ export const ORGANIZATION_ROUTE_PATHS = {
   FRONTEND_INVITE_ACCEPT: "/org-invite",
 };
 
+export const ORGANIZATION_DEFAULTS = {
+  SLUG_FALLBACK: "organization",
+  INVITE_ROLE: ORGANIZATION_ROLES.MEMBER,
+  PREVIOUS_OWNER_ROLE: ORGANIZATION_ROLES.ADMIN,
+};
+
+export const ORGANIZATION_TOKEN_LIMITS = {
+  INVITE_TOKEN_MIN_LENGTH: 16,
+};
+
 export const ORGANIZATION_ERRORS = {
   INVALID_NAME: "Organization name is invalid",
   NAME_ALREADY_EXISTS: "Organization name already exists",

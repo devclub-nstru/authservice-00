@@ -1,8 +1,7 @@
 import crypto from "node:crypto";
 import env from "../../core/config/config.js";
 import { getRedisClient } from "../../core/config/redis.js";
-
-const OAUTH_STATE_KEY_PREFIX = "oauth:state";
+import { OAUTH_STATE_KEY_PREFIX } from "./oauth.constants.js";
 
 const getStateKey = (stateToken) => {
   return `${OAUTH_STATE_KEY_PREFIX}:${stateToken}`;
