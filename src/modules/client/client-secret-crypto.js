@@ -1,5 +1,4 @@
 import crypto from "node:crypto";
-import fs from "node:fs";
 import env from "../../core/config/config.js";
 
 const ENCRYPTION_ALGORITHM = "aes-256-gcm";
@@ -25,25 +24,12 @@ const decodeConfiguredKey = (rawKey) => {
   );
 };
 
-const deriveKeyFromSigningMaterial = () => {
-  const accessPrivateKey = fs.readFileSync(env.ACCESS_TOKEN_PRIVATE_KEY_PATH);
-  const refreshPrivateKey = fs.readFileSync(env.REFRESH_TOKEN_PRIVATE_KEY_PATH);
-
-  return crypto
-    .createHash("sha256")
-    .update(accessPrivateKey)
-    .update(refreshPrivateKey)
-    .digest();
-};
-
 const getEncryptionKey = () => {
   if (cachedKey) {
     return cachedKey;
   }
 
-  cachedKey = env.OAUTH_CLIENT_SECRET_ENCRYPTION_KEY
-    ? decodeConfiguredKey(env.OAUTH_CLIENT_SECRET_ENCRYPTION_KEY)
-    : deriveKeyFromSigningMaterial();
+  cachedKey = decodeConfiguredKey(env.OAUTH_CLIENT_SECRET_ENCRYPTION_KEY);
 
   return cachedKey;
 };

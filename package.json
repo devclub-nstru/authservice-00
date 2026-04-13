@@ -12,7 +12,7 @@
     "db:push": "drizzle-kit push",
     "db:drop": "drizzle-kit drop",
     "worker": "node src/workers/worker.js",
-    "gen:keys": "mkdir -p keys && openssl genpkey -algorithm RSA -out keys/access-private.pem -pkeyopt rsa_keygen_bits:2048 && openssl rsa -pubout -in keys/access-private.pem -out keys/access-public.pem && openssl genpkey -algorithm RSA -out keys/refresh-private.pem -pkeyopt rsa_keygen_bits:2048 && openssl rsa -pubout -in keys/refresh-private.pem -out keys/refresh-public.pem"
+    "gen:keys": "mkdir -p keys && openssl genpkey -algorithm RSA -out keys/access-private.pem -pkeyopt rsa_keygen_bits:2048 && openssl rsa -pubout -in keys/access-private.pem -out keys/access-public.pem && openssl genpkey -algorithm RSA -out keys/refresh-private.pem -pkeyopt rsa_keygen_bits:2048 && openssl rsa -pubout -in keys/refresh-private.pem -out keys/refresh-public.pem && (grep -q '^OAUTH_CLIENT_SECRET_ENCRYPTION_KEY=' .env 2>/dev/null || echo \"OAUTH_CLIENT_SECRET_ENCRYPTION_KEY=$(openssl rand -base64 32)\" >> .env) && echo 'Verified OAUTH_CLIENT_SECRET_ENCRYPTION_KEY exists in .env'"
   },
   "repository": {
     "type": "git",

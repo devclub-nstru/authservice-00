@@ -34,7 +34,7 @@ const envSchema = z.object({
   COOKIE_SAME_SITE: z.enum(["strict", "lax", "none"]).default("lax"),
   SESSION_TTL_DAYS: z.coerce.number().int().positive().default(7),
   BCRYPT_SALT_ROUNDS: z.coerce.number().int().min(10).default(10),
-  OAUTH_CLIENT_SECRET_ENCRYPTION_KEY: z.string().min(1).optional(),
+  OAUTH_CLIENT_SECRET_ENCRYPTION_KEY: z.string().min(1),
   OAUTH_STATE_TTL_SECONDS: z.coerce.number().int().positive().default(300),
   OAUTH_RELOGIN_REQUIREMENT_TTL_SECONDS: z.coerce
     .number()
