@@ -1085,6 +1085,244 @@ export const OPENAPI_PATH_DEFINITIONS = {
       },
     },
   },
+  [OPENAPI_PATHS.ORGANIZATION_CLIENT_WEBHOOK_DELIVERIES]: {
+    get: {
+      summary: "List organization client webhook deliveries",
+      tags: [OPENAPI_TAGS.CLIENTS],
+      security: OPENAPI_SECURITY.AUTHENTICATED,
+      parameters: [
+        {
+          in: "path",
+          name: "orgId",
+          required: true,
+          schema: { type: "string", format: "uuid" },
+        },
+        {
+          in: "path",
+          name: "clientId",
+          required: true,
+          schema: { type: "string", format: "uuid" },
+        },
+        {
+          in: "query",
+          name: "limit",
+          required: false,
+          schema: { type: "integer", minimum: 1, maximum: 200, default: 50 },
+        },
+        {
+          in: "query",
+          name: "offset",
+          required: false,
+          schema: { type: "integer", minimum: 0, default: 0 },
+        },
+        {
+          in: "query",
+          name: "status",
+          required: false,
+          schema: { type: "string", enum: ["success", "failed"] },
+        },
+        {
+          in: "query",
+          name: "source",
+          required: false,
+          schema: {
+            type: "string",
+            enum: ["event", "replay", "test", "verify"],
+          },
+        },
+        {
+          in: "query",
+          name: "event",
+          required: false,
+          schema: { type: "string" },
+        },
+      ],
+      responses: {
+        200: jsonRefResponse(
+          OPENAPI_DESCRIPTIONS.ORGANIZATION_CLIENT_WEBHOOK_DELIVERIES,
+          "#/components/schemas/WebhookDeliveriesResponse",
+        ),
+        401: { description: OPENAPI_DESCRIPTIONS.UNAUTHORIZED },
+        403: { description: "Forbidden" },
+        404: { description: "Organization or client not found" },
+      },
+    },
+  },
+  [OPENAPI_PATHS.ORGANIZATION_CLIENT_WEBHOOK_DELIVERY_BY_ID]: {
+    get: {
+      summary: "Get organization client webhook delivery details",
+      tags: [OPENAPI_TAGS.CLIENTS],
+      security: OPENAPI_SECURITY.AUTHENTICATED,
+      parameters: [
+        {
+          in: "path",
+          name: "orgId",
+          required: true,
+          schema: { type: "string", format: "uuid" },
+        },
+        {
+          in: "path",
+          name: "clientId",
+          required: true,
+          schema: { type: "string", format: "uuid" },
+        },
+        {
+          in: "path",
+          name: "deliveryId",
+          required: true,
+          schema: { type: "string", format: "uuid" },
+        },
+      ],
+      responses: {
+        200: jsonRefResponse(
+          OPENAPI_DESCRIPTIONS.ORGANIZATION_CLIENT_WEBHOOK_DELIVERY,
+          "#/components/schemas/WebhookDeliveryResponse",
+        ),
+        401: { description: OPENAPI_DESCRIPTIONS.UNAUTHORIZED },
+        403: { description: "Forbidden" },
+        404: { description: "Organization, client, or delivery not found" },
+      },
+    },
+  },
+  [OPENAPI_PATHS.ORGANIZATION_CLIENT_WEBHOOK_DELIVERY_REPLAY]: {
+    post: {
+      summary: "Replay a failed organization client webhook delivery",
+      tags: [OPENAPI_TAGS.CLIENTS],
+      security: OPENAPI_SECURITY.AUTHENTICATED,
+      parameters: [
+        {
+          in: "path",
+          name: "orgId",
+          required: true,
+          schema: { type: "string", format: "uuid" },
+        },
+        {
+          in: "path",
+          name: "clientId",
+          required: true,
+          schema: { type: "string", format: "uuid" },
+        },
+        {
+          in: "path",
+          name: "deliveryId",
+          required: true,
+          schema: { type: "string", format: "uuid" },
+        },
+      ],
+      responses: {
+        202: jsonRefResponse(
+          OPENAPI_DESCRIPTIONS.ORGANIZATION_CLIENT_WEBHOOK_DELIVERY_REPLAYED,
+          "#/components/schemas/ReplayWebhookDeliveryResponse",
+        ),
+        400: { description: OPENAPI_DESCRIPTIONS.INVALID_INPUT },
+        401: { description: OPENAPI_DESCRIPTIONS.UNAUTHORIZED },
+        403: { description: "Forbidden" },
+        404: { description: "Organization, client, or delivery not found" },
+      },
+    },
+  },
+  [OPENAPI_PATHS.ORGANIZATION_CLIENT_WEBHOOK_STATUS]: {
+    get: {
+      summary: "Get organization client webhook delivery status",
+      tags: [OPENAPI_TAGS.CLIENTS],
+      security: OPENAPI_SECURITY.AUTHENTICATED,
+      parameters: [
+        {
+          in: "path",
+          name: "orgId",
+          required: true,
+          schema: { type: "string", format: "uuid" },
+        },
+        {
+          in: "path",
+          name: "clientId",
+          required: true,
+          schema: { type: "string", format: "uuid" },
+        },
+      ],
+      responses: {
+        200: jsonRefResponse(
+          OPENAPI_DESCRIPTIONS.ORGANIZATION_CLIENT_WEBHOOK_STATUS,
+          "#/components/schemas/WebhookStatusResponse",
+        ),
+        401: { description: OPENAPI_DESCRIPTIONS.UNAUTHORIZED },
+        403: { description: "Forbidden" },
+        404: { description: "Organization or client not found" },
+      },
+    },
+  },
+  [OPENAPI_PATHS.ORGANIZATION_CLIENT_WEBHOOK_TEST]: {
+    post: {
+      summary: "Send test webhook to organization client receiver",
+      tags: [OPENAPI_TAGS.CLIENTS],
+      security: OPENAPI_SECURITY.AUTHENTICATED,
+      parameters: [
+        {
+          in: "path",
+          name: "orgId",
+          required: true,
+          schema: { type: "string", format: "uuid" },
+        },
+        {
+          in: "path",
+          name: "clientId",
+          required: true,
+          schema: { type: "string", format: "uuid" },
+        },
+      ],
+      requestBody: {
+        required: false,
+        content: {
+          "application/json": {
+            schema: {
+              $ref: "#/components/schemas/TestOrganizationClientWebhookRequest",
+            },
+          },
+        },
+      },
+      responses: {
+        200: jsonRefResponse(
+          OPENAPI_DESCRIPTIONS.ORGANIZATION_CLIENT_WEBHOOK_TESTED,
+          "#/components/schemas/TestOrganizationClientWebhookResponse",
+        ),
+        400: { description: OPENAPI_DESCRIPTIONS.INVALID_INPUT },
+        401: { description: OPENAPI_DESCRIPTIONS.UNAUTHORIZED },
+        403: { description: "Forbidden" },
+        404: { description: "Organization or client not found" },
+      },
+    },
+  },
+  [OPENAPI_PATHS.ORGANIZATION_CLIENT_WEBHOOK_VERIFY]: {
+    post: {
+      summary: "Verify organization client webhook receiver ownership",
+      tags: [OPENAPI_TAGS.CLIENTS],
+      security: OPENAPI_SECURITY.AUTHENTICATED,
+      parameters: [
+        {
+          in: "path",
+          name: "orgId",
+          required: true,
+          schema: { type: "string", format: "uuid" },
+        },
+        {
+          in: "path",
+          name: "clientId",
+          required: true,
+          schema: { type: "string", format: "uuid" },
+        },
+      ],
+      responses: {
+        200: jsonRefResponse(
+          OPENAPI_DESCRIPTIONS.ORGANIZATION_CLIENT_WEBHOOK_VERIFIED,
+          "#/components/schemas/VerifyOrganizationClientWebhookResponse",
+        ),
+        400: { description: OPENAPI_DESCRIPTIONS.INVALID_INPUT },
+        401: { description: OPENAPI_DESCRIPTIONS.UNAUTHORIZED },
+        403: { description: "Forbidden" },
+        404: { description: "Organization or client not found" },
+      },
+    },
+  },
   [OPENAPI_PATHS.ORGANIZATION_INVITE_BY_TOKEN]: {
     get: {
       summary: "Get invite details by token for current user",

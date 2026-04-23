@@ -49,6 +49,18 @@ export const OPENAPI_DESCRIPTIONS = {
   ORGANIZATION_CLIENT_WEBHOOK_DISABLED: "Organization client webhook disabled",
   ORGANIZATION_CLIENT_WEBHOOK_SECRET_ROTATED:
     "Organization client webhook secret rotated",
+  ORGANIZATION_CLIENT_WEBHOOK_DELIVERIES:
+    "Organization client webhook deliveries",
+  ORGANIZATION_CLIENT_WEBHOOK_DELIVERY:
+    "Organization client webhook delivery details",
+  ORGANIZATION_CLIENT_WEBHOOK_DELIVERY_REPLAYED:
+    "Organization client webhook delivery replay queued",
+  ORGANIZATION_CLIENT_WEBHOOK_STATUS:
+    "Organization client webhook delivery status",
+  ORGANIZATION_CLIENT_WEBHOOK_TESTED:
+    "Organization client webhook test completed",
+  ORGANIZATION_CLIENT_WEBHOOK_VERIFIED:
+    "Organization client webhook ownership verified",
   ORGANIZATION_CLIENT_SECRET_ROTATED: "Organization client secret rotated",
   ORGANIZATION_CLIENT_USERS: "Organization client users",
   OAUTH_CLIENT_PROVIDERS: "Configured OAuth providers for client",
@@ -109,6 +121,18 @@ export const OPENAPI_PATHS = {
     "/api/organizations/{orgId}/clients/{clientId}/webhook",
   ORGANIZATION_CLIENT_WEBHOOK_SECRET_ROTATE:
     "/api/organizations/{orgId}/clients/{clientId}/webhook/secret/rotate",
+  ORGANIZATION_CLIENT_WEBHOOK_DELIVERIES:
+    "/api/organizations/{orgId}/clients/{clientId}/webhook/deliveries",
+  ORGANIZATION_CLIENT_WEBHOOK_DELIVERY_BY_ID:
+    "/api/organizations/{orgId}/clients/{clientId}/webhook/deliveries/{deliveryId}",
+  ORGANIZATION_CLIENT_WEBHOOK_DELIVERY_REPLAY:
+    "/api/organizations/{orgId}/clients/{clientId}/webhook/deliveries/{deliveryId}/replay",
+  ORGANIZATION_CLIENT_WEBHOOK_STATUS:
+    "/api/organizations/{orgId}/clients/{clientId}/webhook/status",
+  ORGANIZATION_CLIENT_WEBHOOK_TEST:
+    "/api/organizations/{orgId}/clients/{clientId}/webhook/test",
+  ORGANIZATION_CLIENT_WEBHOOK_VERIFY:
+    "/api/organizations/{orgId}/clients/{clientId}/webhook/verify",
   ORGANIZATION_INVITE_BY_TOKEN: "/api/organizations/invites/{token}",
   ORGANIZATION_INVITE_ACCEPT: "/api/organizations/invites/accept",
   OAUTH_GOOGLE: "/api/oauth/google",

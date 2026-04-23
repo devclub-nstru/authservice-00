@@ -9,12 +9,18 @@ import {
   deleteOrganizationClientProviderHandler,
   disableOrganizationClientWebhookHandler,
   getOrganizationClientHandler,
+  getOrganizationClientWebhookDeliveryHandler,
+  getOrganizationClientWebhookStatusHandler,
+  listOrganizationClientWebhookDeliveriesHandler,
   listOrganizationClientUsersHandler,
   listOrganizationClientsHandler,
+  replayOrganizationClientWebhookDeliveryHandler,
   rotateOrganizationClientSecretHandler,
   rotateOrganizationClientWebhookSecretHandler,
+  testOrganizationClientWebhookHandler,
   updateOrganizationClientHandler,
   updateOrganizationClientProviderHandler,
+  verifyOrganizationClientWebhookHandler,
 } from "./client.controller.js";
 import {
   organizationClientMutationLimiter,
@@ -91,6 +97,45 @@ router.post(
   requireAuth,
   organizationClientProviderMutationLimiter,
   asyncHandler(rotateOrganizationClientWebhookSecretHandler),
+);
+
+router.get(
+  "/:clientId/webhook/status",
+  requireAuth,
+  asyncHandler(getOrganizationClientWebhookStatusHandler),
+);
+
+router.get(
+  "/:clientId/webhook/deliveries",
+  requireAuth,
+  asyncHandler(listOrganizationClientWebhookDeliveriesHandler),
+);
+
+router.get(
+  "/:clientId/webhook/deliveries/:deliveryId",
+  requireAuth,
+  asyncHandler(getOrganizationClientWebhookDeliveryHandler),
+);
+
+router.post(
+  "/:clientId/webhook/deliveries/:deliveryId/replay",
+  requireAuth,
+  organizationClientProviderMutationLimiter,
+  asyncHandler(replayOrganizationClientWebhookDeliveryHandler),
+);
+
+router.post(
+  "/:clientId/webhook/test",
+  requireAuth,
+  organizationClientProviderMutationLimiter,
+  asyncHandler(testOrganizationClientWebhookHandler),
+);
+
+router.post(
+  "/:clientId/webhook/verify",
+  requireAuth,
+  organizationClientProviderMutationLimiter,
+  asyncHandler(verifyOrganizationClientWebhookHandler),
 );
 
 router.delete(

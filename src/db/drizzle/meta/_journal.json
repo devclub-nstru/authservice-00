@@ -50,6 +50,13 @@
       "when": 1775989591234,
       "tag": "0006_lush_mesmero",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1776931134298,
+      "tag": "0007_bored_giant_man",
+      "breakpoints": true
     }
   ]
 }

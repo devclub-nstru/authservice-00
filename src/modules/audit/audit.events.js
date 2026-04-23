@@ -36,6 +36,13 @@ export const AUDIT_EVENTS = {
   ORG_CLIENT_PROVIDER_REMOVED: "organization.client.provider.removed",
   ORG_CLIENT_WEBHOOK_CONFIGURED: "organization.client.webhook.configured",
   ORG_CLIENT_WEBHOOK_DISABLED: "organization.client.webhook.disabled",
+  ORG_CLIENT_WEBHOOK_DELIVERIES_VIEWED:
+    "organization.client.webhook.deliveries_viewed",
+  ORG_CLIENT_WEBHOOK_DELIVERY_REPLAYED:
+    "organization.client.webhook.delivery_replayed",
+  ORG_CLIENT_WEBHOOK_TEST_TRIGGERED:
+    "organization.client.webhook.test_triggered",
+  ORG_CLIENT_WEBHOOK_VERIFIED: "organization.client.webhook.verified",
   OAUTH_START: "oauth.start",
   OAUTH_CALLBACK_SUCCESS: "oauth.callback.success",
   OAUTH_CALLBACK_FAILED: "oauth.callback.failed",

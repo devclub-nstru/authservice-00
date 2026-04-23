@@ -143,6 +143,8 @@ const sanitizeClient = (client, providers, canManage) => ({
   webhookEnabled: client.webhookEnabled || false,
   webhookUrl: canManage ? client.webhookUrl || null : undefined,
   webhookSecret: getVisibleWebhookSecret(client, canManage),
+  webhookVerified: canManage ? Boolean(client.webhookVerified) : undefined,
+  webhookVerifiedAt: canManage ? client.webhookVerifiedAt || null : undefined,
   providers: providers.map((provider) => sanitizeProvider(provider, canManage)),
 });
 
@@ -477,6 +479,8 @@ export const configureOrganizationClientWebhookForUser = async (
     webhookSecretHash,
     webhookSecretCiphertext: encryptedWebhookSecret,
     webhookEnabled: true,
+    webhookVerified: false,
+    webhookVerifiedAt: null,
     updatedByUserId: actorUserId,
   });
 
@@ -488,6 +492,8 @@ export const configureOrganizationClientWebhookForUser = async (
     webhookEnabled: true,
     webhookUrl: updated.webhookUrl,
     webhookSecret: plainWebhookSecret,
+    webhookVerified: false,
+    webhookVerifiedAt: null,
   };
 };
 
@@ -518,6 +524,8 @@ export const rotateOrganizationClientWebhookSecretForUser = async (
   const updated = await updateOrganizationClientById(orgId, clientId, {
     webhookSecretHash,
     webhookSecretCiphertext: encryptedWebhookSecret,
+    webhookVerified: false,
+    webhookVerifiedAt: null,
     updatedByUserId: actorUserId,
   });
 
@@ -529,6 +537,8 @@ export const rotateOrganizationClientWebhookSecretForUser = async (
     webhookEnabled: true,
     webhookUrl: updated.webhookUrl,
     webhookSecret: plainWebhookSecret,
+    webhookVerified: false,
+    webhookVerifiedAt: null,
   };
 };
 
@@ -545,6 +555,8 @@ export const disableOrganizationClientWebhookForUser = async (
     webhookUrl: null,
     webhookSecretHash: null,
     webhookSecretCiphertext: null,
+    webhookVerified: false,
+    webhookVerifiedAt: null,
     updatedByUserId: actorUserId,
   });
 
@@ -561,6 +573,10 @@ export const getOrganizationClientWebhookConfigForDispatch = async (
 ) => {
   const config = await findOrganizationClientWebhookConfig(orgId, clientId);
   if (!config || !config.webhookEnabled || !config.webhookUrl) {
+    return null;
+  }
+
+  if (!config.webhookVerified) {
     return null;
   }
 

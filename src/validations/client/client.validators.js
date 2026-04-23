@@ -2,6 +2,7 @@ import { z } from "zod";
 import {
   CLIENT_ALLOWED_PROVIDERS,
   CLIENT_AUTHORIZED_ORIGINS_LIMITS,
+  CLIENT_WEBHOOK_DELIVERY_LIST_PAGINATION,
   CLIENT_NAME_LIMITS,
   CLIENT_PROVIDER_CREDENTIAL_LIMITS,
   CLIENT_REDIRECT_URIS_LIMITS,
@@ -19,6 +20,12 @@ export const organizationClientProviderParamSchema = z.object({
   orgId: z.string().uuid(),
   clientId: z.string().uuid(),
   provider: providerSchema,
+});
+
+export const organizationClientWebhookDeliveryParamSchema = z.object({
+  orgId: z.string().uuid(),
+  clientId: z.string().uuid(),
+  deliveryId: z.string().uuid(),
 });
 
 export const createOrganizationClientSchema = z.object({
@@ -100,6 +107,35 @@ export const rotateOrganizationClientSecretSchema = z.object({}).passthrough();
 export const rotateOrganizationClientWebhookSecretSchema = z
   .object({})
   .passthrough();
+
+export const listOrganizationClientWebhookDeliveriesQuerySchema = z.object({
+  limit: z.coerce
+    .number()
+    .int()
+    .positive()
+    .max(CLIENT_WEBHOOK_DELIVERY_LIST_PAGINATION.MAX_LIMIT)
+    .default(CLIENT_WEBHOOK_DELIVERY_LIST_PAGINATION.DEFAULT_LIMIT),
+  offset: z.coerce
+    .number()
+    .int()
+    .min(0)
+    .default(CLIENT_WEBHOOK_DELIVERY_LIST_PAGINATION.DEFAULT_OFFSET),
+  status: z.enum(["success", "failed"]).optional(),
+  source: z.enum(["event", "replay", "test", "verify"]).optional(),
+  event: z.string().trim().min(1).max(120).optional(),
+});
+
+export const replayOrganizationClientWebhookDeliverySchema = z
+  .object({})
+  .passthrough();
+
+export const testOrganizationClientWebhookSchema = z
+  .object({
+    payload: z.record(z.string(), z.any()).optional(),
+  })
+  .passthrough();
+
+export const verifyOrganizationClientWebhookSchema = z.object({}).passthrough();
 
 export const listOrganizationClientUsersQuerySchema = z.object({
   limit: z.coerce

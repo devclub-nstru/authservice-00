@@ -42,6 +42,12 @@ export const CLIENT_USER_LIST_PAGINATION = {
   DEFAULT_OFFSET: 0,
 };
 
+export const CLIENT_WEBHOOK_DELIVERY_LIST_PAGINATION = {
+  DEFAULT_LIMIT: 50,
+  MAX_LIMIT: 200,
+  DEFAULT_OFFSET: 0,
+};
+
 export const CLIENT_SECRET_CRYPTO = {
   ENCRYPTION_ALGORITHM: "aes-256-gcm",
   IV_BYTES: 12,
@@ -63,6 +69,10 @@ export const CLIENT_ERRORS = {
   INVALID_REDIRECT_URI: "Redirect URIs must be valid URLs",
   REDIRECT_URI_REQUIRED: "At least one redirect URI is required",
   WEBHOOK_NOT_CONFIGURED: "Client webhook is not configured",
+  WEBHOOK_NOT_VERIFIED: "Client webhook is not verified",
+  WEBHOOK_DELIVERY_NOT_FOUND: "Webhook delivery not found",
+  WEBHOOK_REPLAY_ONLY_FAILED: "Only failed deliveries can be replayed",
+  WEBHOOK_CHALLENGE_FAILED: "Webhook receiver challenge response did not match",
 };
 
 export const CLIENT_MESSAGES = {
@@ -73,5 +83,8 @@ export const CLIENT_MESSAGES = {
   WEBHOOK_CONFIGURED: "Client webhook configured",
   WEBHOOK_DISABLED: "Client webhook disabled",
   WEBHOOK_SECRET_ROTATED: "Client webhook secret rotated",
+  WEBHOOK_REPLAY_QUEUED: "Webhook replay queued",
+  WEBHOOK_TEST_SENT: "Webhook test completed",
+  WEBHOOK_VERIFIED: "Client webhook verified",
   CLIENT_SECRET_ROTATED: "Client secret rotated",
 };

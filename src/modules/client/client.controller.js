@@ -2,13 +2,18 @@ import {
   configureOrganizationClientWebhookSchema,
   createOrganizationClientSchema,
   createOrganizationClientProviderSchema,
+  listOrganizationClientWebhookDeliveriesQuerySchema,
   listOrganizationClientUsersQuerySchema,
   organizationClientParamSchema,
   organizationClientProviderParamSchema,
+  organizationClientWebhookDeliveryParamSchema,
+  replayOrganizationClientWebhookDeliverySchema,
   rotateOrganizationClientSecretSchema,
   rotateOrganizationClientWebhookSecretSchema,
+  testOrganizationClientWebhookSchema,
   updateOrganizationClientProviderSchema,
   updateOrganizationClientSchema,
+  verifyOrganizationClientWebhookSchema,
 } from "../../validations/client/client.validators.js";
 import {
   addOrganizationClientProviderForUser,
@@ -25,6 +30,14 @@ import {
   updateOrganizationClientForUser,
   updateOrganizationClientProviderForUser,
 } from "./client.service.js";
+import {
+  getWebhookDeliveryForUser,
+  getWebhookStatusForUser,
+  listWebhookDeliveriesForUser,
+  replayWebhookDeliveryForUser,
+  testWebhookForUser,
+  verifyWebhookOwnershipForUser,
+} from "../webhook/webhook-admin.service.js";
 import {
   AUDIT_CATEGORY,
   AUDIT_EVENTS,
@@ -349,6 +362,197 @@ export const rotateOrganizationClientWebhookSecretHandler = async (
   res.status(200).json({
     message: CLIENT_MESSAGES.WEBHOOK_SECRET_ROTATED,
     webhook,
+  });
+};
+
+export const listOrganizationClientWebhookDeliveriesHandler = async (
+  req,
+  res,
+) => {
+  const auditContext = buildAuditContextFromRequest(req);
+  const { orgId, clientId } = organizationClientParamSchema.parse(req.params);
+  const query = listOrganizationClientWebhookDeliveriesQuerySchema.parse(
+    req.query,
+  );
+
+  const result = await listWebhookDeliveriesForUser({
+    orgId,
+    clientId,
+    actorUserId: req.auth.sub,
+    query,
+  });
+
+  await emitAuditEvent({
+    ...auditContext,
+    event: AUDIT_EVENTS.ORG_CLIENT_WEBHOOK_DELIVERIES_VIEWED,
+    category: AUDIT_CATEGORY.ORGANIZATION,
+    status: AUDIT_STATUS.SUCCESS,
+    orgId,
+    message: AUDIT_MESSAGES.ORG_CLIENT_WEBHOOK_DELIVERIES_VIEWED,
+    metadata: {
+      clientId,
+      count: result.deliveries.length,
+      limit: query.limit,
+      offset: query.offset,
+      status: query.status || null,
+      source: query.source || null,
+      eventName: query.event || null,
+    },
+  });
+
+  res.status(200).json(result);
+};
+
+export const getOrganizationClientWebhookDeliveryHandler = async (req, res) => {
+  const auditContext = buildAuditContextFromRequest(req);
+  const { orgId, clientId, deliveryId } =
+    organizationClientWebhookDeliveryParamSchema.parse(req.params);
+
+  const delivery = await getWebhookDeliveryForUser({
+    orgId,
+    clientId,
+    deliveryId,
+    actorUserId: req.auth.sub,
+  });
+
+  await emitAuditEvent({
+    ...auditContext,
+    event: AUDIT_EVENTS.ORG_CLIENT_WEBHOOK_DELIVERIES_VIEWED,
+    category: AUDIT_CATEGORY.ORGANIZATION,
+    status: AUDIT_STATUS.SUCCESS,
+    orgId,
+    message: AUDIT_MESSAGES.ORG_CLIENT_WEBHOOK_DELIVERIES_VIEWED,
+    metadata: {
+      clientId,
+      deliveryId,
+    },
+  });
+
+  res.status(200).json({ delivery });
+};
+
+export const replayOrganizationClientWebhookDeliveryHandler = async (
+  req,
+  res,
+) => {
+  const auditContext = buildAuditContextFromRequest(req);
+  const { orgId, clientId, deliveryId } =
+    organizationClientWebhookDeliveryParamSchema.parse(req.params);
+
+  replayOrganizationClientWebhookDeliverySchema.parse(req.body || {});
+
+  const replayResult = await replayWebhookDeliveryForUser({
+    orgId,
+    clientId,
+    deliveryId,
+    actorUserId: req.auth.sub,
+  });
+
+  await emitAuditEvent({
+    ...auditContext,
+    event: AUDIT_EVENTS.ORG_CLIENT_WEBHOOK_DELIVERY_REPLAYED,
+    category: AUDIT_CATEGORY.ORGANIZATION,
+    status: AUDIT_STATUS.SUCCESS,
+    orgId,
+    message: AUDIT_MESSAGES.ORG_CLIENT_WEBHOOK_DELIVERY_REPLAYED,
+    metadata: {
+      clientId,
+      deliveryId,
+      idempotencyKey: replayResult.idempotencyKey,
+    },
+  });
+
+  res.status(202).json(replayResult);
+};
+
+export const getOrganizationClientWebhookStatusHandler = async (req, res) => {
+  const auditContext = buildAuditContextFromRequest(req);
+  const { orgId, clientId } = organizationClientParamSchema.parse(req.params);
+
+  const status = await getWebhookStatusForUser({
+    orgId,
+    clientId,
+    actorUserId: req.auth.sub,
+  });
+
+  await emitAuditEvent({
+    ...auditContext,
+    event: AUDIT_EVENTS.ORG_CLIENT_WEBHOOK_DELIVERIES_VIEWED,
+    category: AUDIT_CATEGORY.ORGANIZATION,
+    status: AUDIT_STATUS.SUCCESS,
+    orgId,
+    message: AUDIT_MESSAGES.ORG_CLIENT_WEBHOOK_DELIVERIES_VIEWED,
+    metadata: {
+      clientId,
+      statusView: true,
+    },
+  });
+
+  res.status(200).json({ status });
+};
+
+export const testOrganizationClientWebhookHandler = async (req, res) => {
+  const auditContext = buildAuditContextFromRequest(req);
+  const { orgId, clientId } = organizationClientParamSchema.parse(req.params);
+  const payload = testOrganizationClientWebhookSchema.parse(req.body || {});
+
+  const result = await testWebhookForUser({
+    orgId,
+    clientId,
+    actorUserId: req.auth.sub,
+    payload: payload.payload,
+  });
+
+  await emitAuditEvent({
+    ...auditContext,
+    event: AUDIT_EVENTS.ORG_CLIENT_WEBHOOK_TEST_TRIGGERED,
+    category: AUDIT_CATEGORY.ORGANIZATION,
+    status: result.success ? AUDIT_STATUS.SUCCESS : AUDIT_STATUS.FAILURE,
+    orgId,
+    message: AUDIT_MESSAGES.ORG_CLIENT_WEBHOOK_TEST_TRIGGERED,
+    metadata: {
+      clientId,
+      success: result.success,
+      httpStatus: result.httpStatus,
+      idempotencyKey: result.idempotencyKey,
+    },
+  });
+
+  res.status(200).json({
+    message: CLIENT_MESSAGES.WEBHOOK_TEST_SENT,
+    test: result,
+  });
+};
+
+export const verifyOrganizationClientWebhookHandler = async (req, res) => {
+  const auditContext = buildAuditContextFromRequest(req);
+  const { orgId, clientId } = organizationClientParamSchema.parse(req.params);
+
+  verifyOrganizationClientWebhookSchema.parse(req.body || {});
+
+  const verification = await verifyWebhookOwnershipForUser({
+    orgId,
+    clientId,
+    actorUserId: req.auth.sub,
+  });
+
+  await emitAuditEvent({
+    ...auditContext,
+    event: AUDIT_EVENTS.ORG_CLIENT_WEBHOOK_VERIFIED,
+    category: AUDIT_CATEGORY.ORGANIZATION,
+    status: AUDIT_STATUS.SUCCESS,
+    orgId,
+    message: AUDIT_MESSAGES.ORG_CLIENT_WEBHOOK_VERIFIED,
+    metadata: {
+      clientId,
+      challenge: verification.challenge,
+      verifiedAt: verification.verifiedAt,
+    },
+  });
+
+  res.status(200).json({
+    message: CLIENT_MESSAGES.WEBHOOK_VERIFIED,
+    verification,
   });
 };
 

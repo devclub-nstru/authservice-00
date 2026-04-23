@@ -244,6 +244,12 @@ export const OPENAPI_COMPONENTS = {
         webhookEnabled: { type: "boolean" },
         webhookUrl: { type: "string", format: "uri", nullable: true },
         webhookSecret: { type: "string", nullable: true },
+        webhookVerified: { type: "boolean", nullable: true },
+        webhookVerifiedAt: {
+          type: "string",
+          format: "date-time",
+          nullable: true,
+        },
         providers: {
           type: "array",
           items: { $ref: "#/components/schemas/OrganizationClientProvider" },
@@ -312,6 +318,147 @@ export const OPENAPI_COMPONENTS = {
         webhookEnabled: { type: "boolean" },
         webhookUrl: { type: "string", format: "uri" },
         webhookSecret: { type: "string" },
+        webhookVerified: { type: "boolean" },
+        webhookVerifiedAt: {
+          type: "string",
+          format: "date-time",
+          nullable: true,
+        },
+      },
+    },
+    WebhookDelivery: {
+      type: "object",
+      properties: {
+        id: { type: "string", format: "uuid" },
+        orgId: { type: "string", format: "uuid" },
+        clientId: { type: "string", format: "uuid" },
+        event: { type: "string" },
+        payload: { type: "object" },
+        idempotencyKey: { type: "string" },
+        source: { type: "string", enum: ["event", "replay", "test", "verify"] },
+        status: { type: "string", enum: ["success", "failed"] },
+        attempt: { type: "integer" },
+        triggeredByUserId: { type: "string", format: "uuid", nullable: true },
+        replayOfDeliveryId: { type: "string", format: "uuid", nullable: true },
+        httpStatus: { type: "integer", nullable: true },
+        responseTimeMs: { type: "integer", nullable: true },
+        responseBody: { type: "string", nullable: true },
+        errorMessage: { type: "string", nullable: true },
+        deliveredAt: { type: "string", format: "date-time" },
+        createdAt: { type: "string", format: "date-time" },
+        updatedAt: { type: "string", format: "date-time" },
+      },
+    },
+    WebhookDeliveriesResponse: {
+      type: "object",
+      properties: {
+        deliveries: {
+          type: "array",
+          items: { $ref: "#/components/schemas/WebhookDelivery" },
+        },
+        pagination: {
+          type: "object",
+          properties: {
+            limit: { type: "integer" },
+            offset: { type: "integer" },
+            count: { type: "integer" },
+            total: { type: "integer" },
+          },
+        },
+      },
+    },
+    WebhookDeliveryResponse: {
+      type: "object",
+      properties: {
+        delivery: { $ref: "#/components/schemas/WebhookDelivery" },
+      },
+    },
+    ReplayWebhookDeliveryResponse: {
+      type: "object",
+      properties: {
+        message: { type: "string" },
+        queued: { type: "boolean" },
+        idempotencyKey: { type: "string" },
+      },
+    },
+    WebhookStatusResponse: {
+      type: "object",
+      properties: {
+        status: {
+          type: "object",
+          properties: {
+            totalCount: { type: "integer" },
+            successCount: { type: "integer" },
+            failedCount: { type: "integer" },
+            pendingCount: { type: "integer" },
+            lastDeliveredAt: {
+              type: "string",
+              format: "date-time",
+              nullable: true,
+            },
+            lastSuccessAt: {
+              type: "string",
+              format: "date-time",
+              nullable: true,
+            },
+            lastFailureAt: {
+              type: "string",
+              format: "date-time",
+              nullable: true,
+            },
+            lastFailure: {
+              type: "object",
+              nullable: true,
+              properties: {
+                id: { type: "string", format: "uuid" },
+                event: { type: "string" },
+                httpStatus: { type: "integer", nullable: true },
+                errorMessage: { type: "string", nullable: true },
+                deliveredAt: { type: "string", format: "date-time" },
+              },
+            },
+          },
+        },
+      },
+    },
+    TestOrganizationClientWebhookRequest: {
+      type: "object",
+      properties: {
+        payload: {
+          type: "object",
+          additionalProperties: true,
+        },
+      },
+    },
+    TestOrganizationClientWebhookResponse: {
+      type: "object",
+      properties: {
+        message: { type: "string" },
+        test: {
+          type: "object",
+          properties: {
+            success: { type: "boolean" },
+            idempotencyKey: { type: "string" },
+            httpStatus: { type: "integer", nullable: true },
+            responseTimeMs: { type: "integer", nullable: true },
+            responseBody: { type: "string", nullable: true },
+            error: { type: "string", nullable: true },
+          },
+        },
+      },
+    },
+    VerifyOrganizationClientWebhookResponse: {
+      type: "object",
+      properties: {
+        message: { type: "string" },
+        verification: {
+          type: "object",
+          properties: {
+            verified: { type: "boolean" },
+            challenge: { type: "string" },
+            verifiedAt: { type: "string", format: "date-time" },
+          },
+        },
       },
     },
     OrganizationClientSecretResponse: {

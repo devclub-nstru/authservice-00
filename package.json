@@ -9,6 +9,7 @@
     "test": "vitest",
     "docs:generate": "rm -rf src/src && node src/scripts/generate-swagger.js",
     "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
     "db:drop": "drizzle-kit drop",
     "worker": "node src/workers/worker.js",

@@ -47,6 +47,10 @@ export const organizationClients = pgTable(
     webhookSecretHash: varchar("webhook_secret_hash", { length: 255 }),
     webhookSecretCiphertext: text("webhook_secret_ciphertext"),
     webhookEnabled: boolean("webhook_enabled").default(false).notNull(),
+    webhookVerified: boolean("webhook_verified").default(false).notNull(),
+    webhookVerifiedAt: timestamp("webhook_verified_at", {
+      withTimezone: true,
+    }),
     createdByUserId: uuid("created_by_user_id").references(() => users.id, {
       onDelete: "set null",
     }),

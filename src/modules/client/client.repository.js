@@ -102,6 +102,8 @@ export const findOrganizationClientWebhookConfig = async (
       webhookSecretHash: organizationClients.webhookSecretHash,
       webhookSecretCiphertext: organizationClients.webhookSecretCiphertext,
       webhookEnabled: organizationClients.webhookEnabled,
+      webhookVerified: organizationClients.webhookVerified,
+      webhookVerifiedAt: organizationClients.webhookVerifiedAt,
     })
     .from(organizationClients)
     .where(

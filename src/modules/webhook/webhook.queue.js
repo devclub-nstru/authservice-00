@@ -3,12 +3,23 @@ import { serviceWebhookQueue } from "../../queues/index.js";
 import { QUEUE_JOB_NAMES } from "../../core/constants/queue.constants.js";
 import { getOrganizationClientWebhookConfigForDispatch } from "../client/client.service.js";
 
-export const queueServiceLogoutWebhook = async ({
+const createWebhookIdempotencyKey = ({ orgId, clientId, event, seed }) => {
+  return crypto
+    .createHash("sha256")
+    .update(`${orgId}:${clientId}:${event}:${seed}`)
+    .digest("hex");
+};
+
+export const queueServiceWebhookEvent = async ({
   orgId,
   clientId,
-  userId,
-  sessionId,
-  clientContext,
+  event,
+  payload,
+  idempotencySeed,
+  source = "event",
+  replayOfDeliveryId = null,
+  triggeredByUserId = null,
+  occurredAt,
 }) => {
   const webhookConfig = await getOrganizationClientWebhookConfigForDispatch(
     orgId,
@@ -16,17 +27,43 @@ export const queueServiceLogoutWebhook = async ({
   );
 
   if (!webhookConfig) {
-    return false;
+    return null;
   }
 
-  const idempotencyKey = crypto
-    .createHash("sha256")
-    .update(`${orgId}:${clientId}:${sessionId}:session.logout`)
-    .digest("hex");
+  const idempotencyKey = createWebhookIdempotencyKey({
+    orgId,
+    clientId,
+    event,
+    seed: idempotencySeed || crypto.randomUUID(),
+  });
 
   await serviceWebhookQueue.add(QUEUE_JOB_NAMES.SEND_SERVICE_WEBHOOK, {
+    orgId,
+    clientId,
     webhookUrl: webhookConfig.webhookUrl,
     webhookSecret: webhookConfig.webhookSecret,
+    event,
+    payload,
+    idempotencyKey,
+    source,
+    replayOfDeliveryId,
+    triggeredByUserId,
+    occurredAt: occurredAt || new Date().toISOString(),
+  });
+
+  return { idempotencyKey };
+};
+
+export const queueServiceLogoutWebhook = async ({
+  orgId,
+  clientId,
+  userId,
+  sessionId,
+  clientContext,
+}) => {
+  const queued = await queueServiceWebhookEvent({
+    orgId,
+    clientId,
     event: "session.logout",
     payload: {
       orgId,
@@ -35,8 +72,9 @@ export const queueServiceLogoutWebhook = async ({
       sessionId,
       clientContext: clientContext || null,
     },
-    idempotencyKey,
+    idempotencySeed: sessionId,
+    source: "event",
   });
 
-  return true;
+  return Boolean(queued);
 };
