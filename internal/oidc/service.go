@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"errors"
+	"fmt"
 	"time"
 
 	"kael/internal/clients"
@@ -36,14 +37,21 @@ type Service struct {
 	repo       *Repository
 	clientRepo *clients.Repository
 	usersRepo  *users.Repository
-	signingKey []byte
+	keyPair    *RSAKeyPair
 }
 
 func NewService(cfg *config.Config, repo *Repository, clientRepo *clients.Repository, usersRepo *users.Repository) (*Service, error) {
-	var signingKey []byte
-	if cfg.OIDCSigningKey != "" {
-		var err error
-		signingKey, err = DecodeBase64SigningKey(cfg.OIDCSigningKey)
+	var kp *RSAKeyPair
+	var err error
+
+	if cfg.OIDCPrivateKeyPath != "" {
+		kp, err = LoadRSAKeyPairFromPEM(cfg.OIDCPrivateKeyPath)
+		if err != nil {
+			return nil, fmt.Errorf("OIDC: %w", err)
+		}
+	} else {
+		// No path configured — generate an ephemeral key (tokens won't survive restarts)
+		kp, err = GenerateRSAKeyPair()
 		if err != nil {
 			return nil, err
 		}
@@ -54,7 +62,7 @@ func NewService(cfg *config.Config, repo *Repository, clientRepo *clients.Reposi
 		repo:       repo,
 		clientRepo: clientRepo,
 		usersRepo:  usersRepo,
-		signingKey: signingKey,
+		keyPair:    kp,
 	}, nil
 }
 
@@ -150,10 +158,6 @@ func (s *Service) Authorize(ctx context.Context, params AuthorizeParams, userID 
 }
 
 func (s *Service) ExchangeCode(ctx context.Context, req TokenRequest) (*TokenResponse, error) {
-	if s.signingKey == nil {
-		return nil, ErrSigningKey
-	}
-
 	client, err := s.clientRepo.FindByClientID(ctx, req.ClientID)
 	if err != nil {
 		return nil, ErrInvalidClient
@@ -207,10 +211,6 @@ func (s *Service) ExchangeCode(ctx context.Context, req TokenRequest) (*TokenRes
 }
 
 func (s *Service) RefreshTokens(ctx context.Context, req TokenRequest) (*TokenResponse, error) {
-	if s.signingKey == nil {
-		return nil, ErrSigningKey
-	}
-
 	client, err := s.clientRepo.FindByClientID(ctx, req.ClientID)
 	if err != nil {
 		return nil, ErrInvalidClient
@@ -300,6 +300,44 @@ func (s *Service) Logout(ctx context.Context, accessToken string) error {
 	return s.repo.RevokeTokensByUserAndClient(ctx, token.UserID, token.ClientPK)
 }
 
+func (s *Service) JWKS() *JWKSDocument {
+	return BuildJWKS(s.keyPair)
+}
+
+func (s *Service) Introspect(ctx context.Context, rawToken string) *IntrospectResponse {
+	inactive := &IntrospectResponse{Active: false}
+
+	tokenHash := security.HashToken(rawToken)
+	token, err := s.repo.FindTokenByAccessHash(ctx, tokenHash)
+	if err != nil {
+		return inactive
+	}
+
+	if token.RevokedAt != nil || time.Now().After(token.AccessExpiresAt) {
+		return inactive
+	}
+
+	active, err := s.repo.IsSessionActive(ctx, token.SessionID)
+	if err != nil || !active {
+		return inactive
+	}
+
+	client, err := s.clientRepo.FindByID(ctx, token.ClientPK)
+	if err != nil {
+		return inactive
+	}
+
+	return &IntrospectResponse{
+		Active:    true,
+		Sub:       token.UserID.String(),
+		ClientID:  client.ClientID,
+		Scope:     token.Scope,
+		Exp:       token.AccessExpiresAt.Unix(),
+		Iat:       token.CreatedAt.Unix(),
+		TokenType: "Bearer",
+	}
+}
+
 func (s *Service) Discovery() *DiscoveryDocument {
 	issuer := s.cfg.OIDCIssuer
 	if issuer == "" {
@@ -312,9 +350,11 @@ func (s *Service) Discovery() *DiscoveryDocument {
 		TokenEndpoint:                     issuer + "/oidc/token",
 		UserinfoEndpoint:                  issuer + "/oidc/userinfo",
 		RevocationEndpoint:                issuer + "/oidc/revoke",
+		IntrospectionEndpoint:             issuer + "/oidc/introspect",
+		JWKSUri:                           issuer + "/.well-known/jwks.json",
 		ResponseTypesSupported:            []string{"code"},
 		SubjectTypesSupported:             []string{"public"},
-		IDTokenSigningAlgValuesSupported:  []string{"HS256"},
+		IDTokenSigningAlgValuesSupported:  []string{"RS256"},
 		ScopesSupported:                   []string{"openid", "profile", "email"},
 		TokenEndpointAuthMethodsSupported: []string{"client_secret_post"},
 		CodeChallengeMethodsSupported:     []string{"S256"},
@@ -368,7 +408,7 @@ func (s *Service) issueTokens(ctx context.Context, client *clients.Client, userI
 		s.cfg.OIDCAccessTokenTTL,
 	)
 
-	idToken, err := SignIDToken(s.signingKey, claims)
+	idToken, err := SignIDTokenRS256(s.keyPair, claims)
 	if err != nil {
 		return nil, err
 	}

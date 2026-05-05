@@ -13,6 +13,21 @@ definitions:
       user:
         $ref: '#/definitions/auth.UserResponse'
     type: object
+  auth.ConnectedClientResponse:
+    properties:
+      avatar_url:
+        type: string
+      client_id:
+        type: string
+      connected_at:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      role:
+        type: string
+    type: object
   auth.EmailResendRequest:
     properties:
       email:
@@ -111,6 +126,10 @@ definitions:
     properties:
       avatar_url:
         type: string
+      clients:
+        items:
+          $ref: '#/definitions/auth.ConnectedClientResponse'
+        type: array
       email:
         type: string
       email_verified:
@@ -128,15 +147,6 @@ definitions:
           type: string
         type: array
     type: object
-  clients.AddMemberRequest:
-    properties:
-      email:
-        type: string
-      role:
-        type: string
-    required:
-    - email
-    type: object
   clients.ClientResponse:
     properties:
       avatar_url:
@@ -147,8 +157,6 @@ definitions:
         type: string
       id:
         type: string
-      is_public:
-        type: boolean
       name:
         type: string
       redirect_uris:
@@ -162,8 +170,6 @@ definitions:
     properties:
       avatar_url:
         type: string
-      is_public:
-        type: boolean
       name:
         type: string
       redirect_uris:
@@ -274,7 +280,11 @@ definitions:
         items:
           type: string
         type: array
+      introspection_endpoint:
+        type: string
       issuer:
+        type: string
+      jwks_uri:
         type: string
       response_types_supported:
         items:
@@ -298,6 +308,45 @@ definitions:
         type: array
       userinfo_endpoint:
         type: string
+    type: object
+  oidc.IntrospectResponse:
+    properties:
+      active:
+        type: boolean
+      client_id:
+        type: string
+      exp:
+        type: integer
+      iat:
+        type: integer
+      scope:
+        type: string
+      sub:
+        type: string
+      token_type:
+        type: string
+    type: object
+  oidc.JWK:
+    properties:
+      alg:
+        type: string
+      e:
+        type: string
+      kid:
+        type: string
+      kty:
+        type: string
+      "n":
+        type: string
+      use:
+        type: string
+    type: object
+  oidc.JWKSDocument:
+    properties:
+      keys:
+        items:
+          $ref: '#/definitions/oidc.JWK'
+        type: array
     type: object
   oidc.TokenResponse:
     properties:
@@ -331,6 +380,19 @@ info:
   title: Kael API
   version: "1.0"
 paths:
+  /.well-known/jwks.json:
+    get:
+      description: Return the public RSA keys used to verify ID tokens
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/oidc.JWKSDocument'
+      summary: JWKS
+      tags:
+      - oidc
   /.well-known/openid-configuration:
     get:
       description: Return the OpenID Connect discovery document
@@ -499,7 +561,8 @@ paths:
       - auth
   /auth/me:
     get:
-      description: Get the profile of the currently authenticated user
+      description: Get the profile of the currently authenticated user, including
+        connected clients
       produces:
       - application/json
       responses:
@@ -522,6 +585,51 @@ paths:
                   $ref: '#/definitions/httpx.ErrorResponse'
               type: object
       summary: Get current user
+      tags:
+      - auth
+  /auth/me/clients/{id}:
+    delete:
+      description: Disconnect the current user from a client and revoke all client
+        tokens
+      parameters:
+      - description: Client UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/httpx.Response'
+            - properties:
+                data:
+                  additionalProperties:
+                    type: boolean
+                  type: object
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            allOf:
+            - $ref: '#/definitions/httpx.Response'
+            - properties:
+                error:
+                  $ref: '#/definitions/httpx.ErrorResponse'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            allOf:
+            - $ref: '#/definitions/httpx.Response'
+            - properties:
+                error:
+                  $ref: '#/definitions/httpx.ErrorResponse'
+              type: object
+      summary: Disconnect client
       tags:
       - auth
   /auth/mfa/verify:
@@ -937,47 +1045,6 @@ paths:
                   $ref: '#/definitions/httpx.ErrorResponse'
               type: object
       summary: Update client
-      tags:
-      - clients
-  /clients/{id}/members:
-    post:
-      consumes:
-      - application/json
-      description: Add a user to a client by email
-      parameters:
-      - description: Client UUID
-        in: path
-        name: id
-        required: true
-        type: string
-      - description: Member payload
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/clients.AddMemberRequest'
-      produces:
-      - application/json
-      responses:
-        "201":
-          description: Created
-          schema:
-            allOf:
-            - $ref: '#/definitions/httpx.Response'
-            - properties:
-                data:
-                  $ref: '#/definitions/clients.MemberProfile'
-              type: object
-        "400":
-          description: Bad Request
-          schema:
-            allOf:
-            - $ref: '#/definitions/httpx.Response'
-            - properties:
-                error:
-                  $ref: '#/definitions/httpx.ErrorResponse'
-              type: object
-      summary: Add member
       tags:
       - clients
   /clients/{id}/members/{userId}:
@@ -1482,6 +1549,36 @@ paths:
                   $ref: '#/definitions/httpx.ErrorResponse'
               type: object
       summary: OIDC Authorize
+      tags:
+      - oidc
+  /oidc/introspect:
+    post:
+      consumes:
+      - application/x-www-form-urlencoded
+      description: Inspect an access token — returns active status and claims
+      parameters:
+      - description: The access token to introspect
+        in: formData
+        name: token
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/oidc.IntrospectResponse'
+        "400":
+          description: Bad Request
+          schema:
+            allOf:
+            - $ref: '#/definitions/httpx.Response'
+            - properties:
+                error:
+                  $ref: '#/definitions/httpx.ErrorResponse'
+              type: object
+      summary: Token Introspection
       tags:
       - oidc
   /oidc/logout:

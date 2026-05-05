@@ -16,6 +16,26 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/.well-known/jwks.json": {
+            "get": {
+                "description": "Return the public RSA keys used to verify ID tokens",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "oidc"
+                ],
+                "summary": "JWKS",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/oidc.JWKSDocument"
+                        }
+                    }
+                }
+            }
+        },
         "/.well-known/openid-configuration": {
             "get": {
                 "description": "Return the OpenID Connect discovery document",
@@ -302,7 +322,7 @@ const docTemplate = `{
         },
         "/auth/me": {
             "get": {
-                "description": "Get the profile of the currently authenticated user",
+                "description": "Get the profile of the currently authenticated user, including connected clients",
                 "produces": [
                     "application/json"
                 ],
@@ -323,6 +343,86 @@ const docTemplate = `{
                                     "properties": {
                                         "data": {
                                             "$ref": "#/definitions/auth.UserResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httpx.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "error": {
+                                            "$ref": "#/definitions/httpx.ErrorResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/me/clients/{id}": {
+            "delete": {
+                "description": "Disconnect the current user from a client and revoke all client tokens",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Disconnect client",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Client UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httpx.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "object",
+                                            "additionalProperties": {
+                                                "type": "boolean"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httpx.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "error": {
+                                            "$ref": "#/definitions/httpx.ErrorResponse"
                                         }
                                     }
                                 }
@@ -1057,77 +1157,6 @@ const docTemplate = `{
                                             "additionalProperties": {
                                                 "type": "boolean"
                                             }
-                                        }
-                                    }
-                                }
-                            ]
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "allOf": [
-                                {
-                                    "$ref": "#/definitions/httpx.Response"
-                                },
-                                {
-                                    "type": "object",
-                                    "properties": {
-                                        "error": {
-                                            "$ref": "#/definitions/httpx.ErrorResponse"
-                                        }
-                                    }
-                                }
-                            ]
-                        }
-                    }
-                }
-            }
-        },
-        "/clients/{id}/members": {
-            "post": {
-                "description": "Add a user to a client by email",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "clients"
-                ],
-                "summary": "Add member",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Client UUID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "Member payload",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/clients.AddMemberRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "201": {
-                        "description": "Created",
-                        "schema": {
-                            "allOf": [
-                                {
-                                    "$ref": "#/definitions/httpx.Response"
-                                },
-                                {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "$ref": "#/definitions/clients.MemberProfile"
                                         }
                                     }
                                 }
@@ -2010,6 +2039,56 @@ const docTemplate = `{
                 }
             }
         },
+        "/oidc/introspect": {
+            "post": {
+                "description": "Inspect an access token — returns active status and claims",
+                "consumes": [
+                    "application/x-www-form-urlencoded"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "oidc"
+                ],
+                "summary": "Token Introspection",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The access token to introspect",
+                        "name": "token",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/oidc.IntrospectResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httpx.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "error": {
+                                            "$ref": "#/definitions/httpx.ErrorResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
         "/oidc/logout": {
             "post": {
                 "description": "Revoke all tokens for the client associated with the access token",
@@ -2394,6 +2473,29 @@ const docTemplate = `{
                 }
             }
         },
+        "auth.ConnectedClientResponse": {
+            "type": "object",
+            "properties": {
+                "avatar_url": {
+                    "type": "string"
+                },
+                "client_id": {
+                    "type": "string"
+                },
+                "connected_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "role": {
+                    "type": "string"
+                }
+            }
+        },
         "auth.EmailResendRequest": {
             "type": "object",
             "required": [
@@ -2541,6 +2643,12 @@ const docTemplate = `{
                 "avatar_url": {
                     "type": "string"
                 },
+                "clients": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/auth.ConnectedClientResponse"
+                    }
+                },
                 "email": {
                     "type": "string"
                 },
@@ -2567,20 +2675,6 @@ const docTemplate = `{
                 }
             }
         },
-        "clients.AddMemberRequest": {
-            "type": "object",
-            "required": [
-                "email"
-            ],
-            "properties": {
-                "email": {
-                    "type": "string"
-                },
-                "role": {
-                    "type": "string"
-                }
-            }
-        },
         "clients.ClientResponse": {
             "type": "object",
             "properties": {
@@ -2595,9 +2689,6 @@ const docTemplate = `{
                 },
                 "id": {
                     "type": "string"
-                },
-                "is_public": {
-                    "type": "boolean"
                 },
                 "name": {
                     "type": "string"
@@ -2622,9 +2713,6 @@ const docTemplate = `{
             "properties": {
                 "avatar_url": {
                     "type": "string"
-                },
-                "is_public": {
-                    "type": "boolean"
                 },
                 "name": {
                     "type": "string"
@@ -2789,7 +2877,13 @@ const docTemplate = `{
                         "type": "string"
                     }
                 },
+                "introspection_endpoint": {
+                    "type": "string"
+                },
                 "issuer": {
+                    "type": "string"
+                },
+                "jwks_uri": {
                     "type": "string"
                 },
                 "response_types_supported": {
@@ -2824,6 +2918,66 @@ const docTemplate = `{
                 },
                 "userinfo_endpoint": {
                     "type": "string"
+                }
+            }
+        },
+        "oidc.IntrospectResponse": {
+            "type": "object",
+            "properties": {
+                "active": {
+                    "type": "boolean"
+                },
+                "client_id": {
+                    "type": "string"
+                },
+                "exp": {
+                    "type": "integer"
+                },
+                "iat": {
+                    "type": "integer"
+                },
+                "scope": {
+                    "type": "string"
+                },
+                "sub": {
+                    "type": "string"
+                },
+                "token_type": {
+                    "type": "string"
+                }
+            }
+        },
+        "oidc.JWK": {
+            "type": "object",
+            "properties": {
+                "alg": {
+                    "type": "string"
+                },
+                "e": {
+                    "type": "string"
+                },
+                "kid": {
+                    "type": "string"
+                },
+                "kty": {
+                    "type": "string"
+                },
+                "n": {
+                    "type": "string"
+                },
+                "use": {
+                    "type": "string"
+                }
+            }
+        },
+        "oidc.JWKSDocument": {
+            "type": "object",
+            "properties": {
+                "keys": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/oidc.JWK"
+                    }
                 }
             }
         },

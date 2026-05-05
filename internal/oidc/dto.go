@@ -30,12 +30,28 @@ type RevokeRequest struct {
 	Token string `form:"token" json:"token" binding:"required"`
 }
 
+type IntrospectRequest struct {
+	Token string `form:"token" json:"token" binding:"required"`
+}
+
+type IntrospectResponse struct {
+	Active    bool   `json:"active"`
+	Sub       string `json:"sub,omitempty"`
+	ClientID  string `json:"client_id,omitempty"`
+	Scope     string `json:"scope,omitempty"`
+	Exp       int64  `json:"exp,omitempty"`
+	Iat       int64  `json:"iat,omitempty"`
+	TokenType string `json:"token_type,omitempty"`
+}
+
 type DiscoveryDocument struct {
 	Issuer                           string   `json:"issuer"`
 	AuthorizationEndpoint            string   `json:"authorization_endpoint"`
 	TokenEndpoint                    string   `json:"token_endpoint"`
 	UserinfoEndpoint                 string   `json:"userinfo_endpoint"`
 	RevocationEndpoint               string   `json:"revocation_endpoint"`
+	IntrospectionEndpoint            string   `json:"introspection_endpoint"`
+	JWKSUri                          string   `json:"jwks_uri"`
 	ResponseTypesSupported           []string `json:"response_types_supported"`
 	SubjectTypesSupported            []string `json:"subject_types_supported"`
 	IDTokenSigningAlgValuesSupported []string `json:"id_token_signing_alg_values_supported"`

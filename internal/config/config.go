@@ -60,7 +60,7 @@ type Config struct {
 	MfaRateLimitPerMinute   int
 	AsynqWorkerConcurrency  int
 
-	OIDCSigningKey      string
+	OIDCPrivateKeyPath  string
 	OIDCCodeTTL         time.Duration
 	OIDCAccessTokenTTL  time.Duration
 	OIDCRefreshTokenTTL time.Duration
@@ -123,7 +123,7 @@ func Load() (*Config, error) {
 		MfaRateLimitPerMinute:   getInt("MFA_RATE_LIMIT_PER_MINUTE", 30),
 		AsynqWorkerConcurrency:  getInt("ASYNQ_WORKER_CONCURRENCY", 10),
 
-		OIDCSigningKey:      getString("OIDC_SIGNING_KEY", ""),
+		OIDCPrivateKeyPath:  getString("OIDC_PRIVATE_KEY_PATH", ".keys/oidc_private.pem"),
 		OIDCCodeTTL:         getDuration("OIDC_CODE_TTL", 5*time.Minute),
 		OIDCAccessTokenTTL:  getDuration("OIDC_ACCESS_TOKEN_TTL", time.Hour),
 		OIDCRefreshTokenTTL: getDuration("OIDC_REFRESH_TOKEN_TTL", 30*24*time.Hour),

@@ -228,6 +228,37 @@ func (h *Handler) Discovery(c *gin.Context) {
 	c.JSON(http.StatusOK, h.service.Discovery())
 }
 
+// JWKS returns the JSON Web Key Set for RS256 token verification
+// @Summary      JWKS
+// @Description  Return the public RSA keys used to verify ID tokens
+// @Tags         oidc
+// @Produce      json
+// @Success      200 {object} JWKSDocument
+// @Router       /.well-known/jwks.json [get]
+func (h *Handler) JWKS(c *gin.Context) {
+	c.JSON(http.StatusOK, h.service.JWKS())
+}
+
+// Introspect validates an access token and returns its metadata
+// @Summary      Token Introspection
+// @Description  Inspect an access token — returns active status and claims
+// @Tags         oidc
+// @Accept       application/x-www-form-urlencoded
+// @Produce      json
+// @Param        token formData string true "The access token to introspect"
+// @Success      200 {object} IntrospectResponse
+// @Failure      400 {object} httpx.Response{error=httpx.ErrorResponse}
+// @Router       /oidc/introspect [post]
+func (h *Handler) Introspect(c *gin.Context) {
+	var req IntrospectRequest
+	if err := c.ShouldBind(&req); err != nil {
+		httpx.RespondError(c, http.StatusBadRequest, "invalid_request", err.Error(), nil)
+		return
+	}
+	// Always return 200 per RFC 7662 — inactive if invalid
+	c.JSON(http.StatusOK, h.service.Introspect(c.Request.Context(), req.Token))
+}
+
 func (h *Handler) resolveSession(c *gin.Context) (uuid.UUID, uuid.UUID, error) {
 	cookieValue, err := c.Cookie(h.cfg.SessionCookieName)
 	if err != nil || cookieValue == "" {
