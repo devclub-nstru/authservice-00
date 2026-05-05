@@ -135,6 +135,18 @@ func (s *Service) HandleCallback(ctx context.Context, provider string, code stri
 	return user, created, statePayload["device_id"], statePayload["ip_address"], statePayload["user_agent"], err
 }
 
+func (s *Service) ListProvidersByUser(ctx context.Context, userID uuid.UUID) ([]string, error) {
+	accounts, err := s.repo.ListByUser(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	providers := make([]string, 0, len(accounts))
+	for _, a := range accounts {
+		providers = append(providers, a.Provider)
+	}
+	return providers, nil
+}
+
 func (s *Service) loginOrCreate(ctx context.Context, userInfo *ProviderUser) (*users.User, bool, error) {
 	account, err := s.repo.FindByProviderUserID(ctx, userInfo.Provider, userInfo.ProviderUserID)
 	if err == nil {

@@ -49,12 +49,19 @@ type MFAVerifyRequest struct {
 	Code           string `json:"code" binding:"required"`
 }
 
+type MFATriggerRequest struct {
+	ChallengeToken string `json:"challenge_token" binding:"required"`
+	Factor         string `json:"factor" binding:"required"`
+}
+
 type UserResponse struct {
 	ID            string  `json:"id"`
 	Email         string  `json:"email"`
 	EmailVerified bool    `json:"email_verified"`
-	Name          *string `json:"name,omitempty"`
-	AvatarURL     *string `json:"avatar_url,omitempty"`
+	Name          *string  `json:"name,omitempty"`
+	AvatarURL     *string  `json:"avatar_url,omitempty"`
+	MFAEnabled    []string `json:"mfa_enabled"`
+	OAuthAccounts []string `json:"oauth_accounts"`
 }
 
 type AuthResponse struct {
@@ -72,5 +79,14 @@ func mapUser(user *users.User) UserResponse {
 		EmailVerified: user.EmailVerified,
 		Name:          user.Name,
 		AvatarURL:     user.AvatarURL,
+		MFAEnabled:    []string{},
+		OAuthAccounts: []string{},
 	}
+}
+
+func mapProfile(profile *Profile) UserResponse {
+	res := mapUser(profile.User)
+	res.MFAEnabled = profile.MFAEnabled
+	res.OAuthAccounts = profile.OAuthAccounts
+	return res
 }

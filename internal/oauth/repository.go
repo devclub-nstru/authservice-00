@@ -45,6 +45,28 @@ func (r *Repository) FindByUserProvider(ctx context.Context, userID uuid.UUID, p
 	return scanAccount(row)
 }
 
+func (r *Repository) ListByUser(ctx context.Context, userID uuid.UUID) ([]Account, error) {
+	query := `
+		SELECT id, user_id, provider, provider_user_id, email, email_verified, created_at, updated_at
+		FROM oauth_accounts
+		WHERE user_id = $1`
+	rows, err := r.db.Query(ctx, query, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var accounts []Account
+	for rows.Next() {
+		account, err := scanAccount(rows)
+		if err != nil {
+			return nil, err
+		}
+		accounts = append(accounts, *account)
+	}
+	return accounts, rows.Err()
+}
+
 func (r *Repository) Touch(ctx context.Context, id uuid.UUID) error {
 	query := `UPDATE oauth_accounts SET updated_at = $2 WHERE id = $1`
 	_, err := r.db.Exec(ctx, query, id, time.Now())

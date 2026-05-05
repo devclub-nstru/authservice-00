@@ -29,7 +29,16 @@ func RequireSession(cfg *config.Config, service *sessions.Service) gin.HandlerFu
 
 		session, err := service.Validate(c.Request.Context(), token, deviceID)
 		if err != nil {
-			httpx.RespondError(c, http.StatusUnauthorized, "session_invalid", "invalid session", nil)
+			switch err {
+			case sessions.ErrSessionExpired:
+				httpx.RespondError(c, http.StatusUnauthorized, "session_expired", "session expired", nil)
+			case sessions.ErrMFAPending:
+				httpx.RespondError(c, http.StatusForbidden, "mfa_pending", "mfa verification required", nil)
+			case sessions.ErrEmailNotVerified:
+				httpx.RespondError(c, http.StatusForbidden, "email_not_verified", "email verification required", nil)
+			default:
+				httpx.RespondError(c, http.StatusUnauthorized, "session_invalid", "invalid session", nil)
+			}
 			c.Abort()
 			return
 		}

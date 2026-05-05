@@ -19,10 +19,15 @@ func NewRepository(db *pgxpool.Pool) *Repository {
 
 func (r *Repository) Create(ctx context.Context, session Session) (*Session, error) {
 	query := `
-		INSERT INTO sessions (user_id, device_id, session_token_hash, ip_address, user_agent, expires_at, is_active, mfa_pending)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-		RETURNING id, user_id, device_id, session_token_hash, ip_address, user_agent, created_at, last_seen_at, expires_at, revoked_at, is_active, mfa_pending`
-
+		WITH inserted AS (
+			INSERT INTO sessions (user_id, device_id, session_token_hash, ip_address, user_agent, expires_at, is_active, mfa_pending)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+			RETURNING id, user_id, device_id, session_token_hash, ip_address, user_agent, created_at, last_seen_at, expires_at, revoked_at, is_active, mfa_pending
+		)
+		SELECT i.*, u.email_verified
+		FROM inserted i
+		JOIN users u ON i.user_id = u.id`
+	
 	row := r.db.QueryRow(ctx, query,
 		session.UserID,
 		session.DeviceID,
@@ -47,16 +52,20 @@ func (r *Repository) RevokeActiveByUserDevice(ctx context.Context, userID uuid.U
 
 func (r *Repository) FindByTokenHash(ctx context.Context, tokenHash string) (*Session, error) {
 	query := `
-		SELECT id, user_id, device_id, session_token_hash, ip_address, user_agent, created_at, last_seen_at, expires_at, revoked_at, is_active, mfa_pending
-		FROM sessions WHERE session_token_hash = $1`
+		SELECT s.id, s.user_id, s.device_id, s.session_token_hash, s.ip_address, s.user_agent, s.created_at, s.last_seen_at, s.expires_at, s.revoked_at, s.is_active, s.mfa_pending, u.email_verified
+		FROM sessions s
+		JOIN users u ON s.user_id = u.id
+		WHERE s.session_token_hash = $1`
 	row := r.db.QueryRow(ctx, query, tokenHash)
 	return scanSession(row)
 }
 
 func (r *Repository) ListByUser(ctx context.Context, userID uuid.UUID) ([]Session, error) {
 	query := `
-		SELECT id, user_id, device_id, session_token_hash, ip_address, user_agent, created_at, last_seen_at, expires_at, revoked_at, is_active, mfa_pending
-		FROM sessions WHERE user_id = $1 ORDER BY created_at DESC`
+		SELECT s.id, s.user_id, s.device_id, s.session_token_hash, s.ip_address, s.user_agent, s.created_at, s.last_seen_at, s.expires_at, s.revoked_at, s.is_active, s.mfa_pending, u.email_verified
+		FROM sessions s
+		JOIN users u ON s.user_id = u.id
+		WHERE s.user_id = $1 ORDER BY s.created_at DESC`
 
 	rows, err := r.db.Query(ctx, query, userID)
 	if err != nil {
@@ -126,6 +135,7 @@ func scanSession(row pgx.Row) (*Session, error) {
 		&session.RevokedAt,
 		&session.IsActive,
 		&session.MFAPending,
+		&session.EmailVerified,
 	); err != nil {
 		return nil, err
 	}

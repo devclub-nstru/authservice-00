@@ -12,8 +12,10 @@ import (
 )
 
 var (
-	ErrSessionExpired = errors.New("session expired")
-	ErrSessionInvalid = errors.New("session invalid")
+	ErrSessionExpired   = errors.New("session expired")
+	ErrSessionInvalid   = errors.New("session invalid")
+	ErrMFAPending       = errors.New("mfa pending")
+	ErrEmailNotVerified = errors.New("email not verified")
 )
 
 type Service struct {
@@ -71,8 +73,16 @@ func (s *Service) Validate(ctx context.Context, token string, deviceID string) (
 		return nil, ErrSessionInvalid
 	}
 
-	if session.DeviceID != deviceID || !session.IsActive || session.MFAPending || session.RevokedAt != nil {
+	if session.DeviceID != deviceID || !session.IsActive || session.RevokedAt != nil {
 		return nil, ErrSessionInvalid
+	}
+
+	if session.MFAPending {
+		return nil, ErrMFAPending
+	}
+
+	if !session.EmailVerified {
+		return nil, ErrEmailNotVerified
 	}
 
 	now := time.Now()

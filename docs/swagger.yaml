@@ -117,8 +117,16 @@ definitions:
         type: boolean
       id:
         type: string
+      mfa_enabled:
+        items:
+          type: string
+        type: array
       name:
         type: string
+      oauth_accounts:
+        items:
+          type: string
+        type: array
     type: object
   health.DBCheckResponse:
     properties:
@@ -150,6 +158,13 @@ definitions:
         $ref: '#/definitions/httpx.ErrorResponse'
       success:
         type: boolean
+    type: object
+  mfa.EmailVerifyRequest:
+    properties:
+      code:
+        type: string
+    required:
+    - code
     type: object
   mfa.TOTPVerifyRequest:
     properties:
@@ -658,7 +673,36 @@ paths:
       - mfa
   /mfa/email/enable:
     post:
-      description: Enable Email MFA for the user
+      description: Start enabling Email MFA by sending a verification code
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/httpx.Response'
+            - properties:
+                data:
+                  additionalProperties:
+                    type: string
+                  type: object
+              type: object
+      summary: Enable Email MFA
+      tags:
+      - mfa
+  /mfa/email/verify:
+    post:
+      consumes:
+      - application/json
+      description: Verify the email code to enable Email MFA for the user
+      parameters:
+      - description: Email verification payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/mfa.EmailVerifyRequest'
       produces:
       - application/json
       responses:
@@ -673,7 +717,16 @@ paths:
                     type: boolean
                   type: object
               type: object
-      summary: Enable Email MFA
+        "400":
+          description: Bad Request
+          schema:
+            allOf:
+            - $ref: '#/definitions/httpx.Response'
+            - properties:
+                error:
+                  $ref: '#/definitions/httpx.ErrorResponse'
+              type: object
+      summary: Verify Email MFA
       tags:
       - mfa
   /mfa/totp/disable:

@@ -1,22 +1,27 @@
 package mfa
 
 import (
+	"encoding/json"
 	"net/http"
 
 	"kael/internal/config"
 	"kael/internal/ctxkeys"
+	"kael/internal/email"
 	"kael/internal/httpx"
+	"kael/internal/ques"
 	"kael/internal/security"
 	"kael/internal/users"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/hibiken/asynq"
 )
 
 type Handler struct {
 	repo    *Repository
 	users   *users.Repository
 	cfg     *config.Config
+	asynq   *asynq.Client
 	totpKey []byte
 }
 
@@ -24,7 +29,11 @@ type TOTPVerifyRequest struct {
 	Code string `json:"code" binding:"required"`
 }
 
-func NewHandler(repo *Repository, usersRepo *users.Repository, cfg *config.Config) (*Handler, error) {
+type EmailVerifyRequest struct {
+	Code string `json:"code" binding:"required"`
+}
+
+func NewHandler(repo *Repository, usersRepo *users.Repository, cfg *config.Config, asynqClient *asynq.Client) (*Handler, error) {
 	var key []byte
 	var err error
 	if cfg.TOTPEncryptionKey != "" {
@@ -33,7 +42,7 @@ func NewHandler(repo *Repository, usersRepo *users.Repository, cfg *config.Confi
 			return nil, err
 		}
 	}
-	return &Handler{repo: repo, users: usersRepo, cfg: cfg, totpKey: key}, nil
+	return &Handler{repo: repo, users: usersRepo, cfg: cfg, asynq: asynqClient, totpKey: key}, nil
 }
 
 // EnableTOTP generates a new TOTP secret
@@ -158,12 +167,12 @@ func (h *Handler) DisableTOTP(c *gin.Context) {
 	httpx.Respond(c, http.StatusOK, gin.H{"disabled": true})
 }
 
-// EnableEmail enables email MFA
+// EnableEmail starts email MFA setup by sending an OTP
 // @Summary      Enable Email MFA
-// @Description  Enable Email MFA for the user
+// @Description  Start enabling Email MFA by sending a verification code
 // @Tags         mfa
 // @Produce      json
-// @Success      200  {object}  httpx.Response{data=map[string]bool}
+// @Success      200  {object}  httpx.Response{data=map[string]string}
 // @Router       /mfa/email/enable [post]
 func (h *Handler) EnableEmail(c *gin.Context) {
 	userID, err := getUserID(c)
@@ -172,7 +181,70 @@ func (h *Handler) EnableEmail(c *gin.Context) {
 		return
 	}
 
-	if _, err := h.repo.UpsertFactor(c.Request.Context(), userID, "email", nil, true); err != nil {
+	user, err := h.users.FindByID(c.Request.Context(), userID)
+	if err != nil {
+		httpx.RespondError(c, http.StatusBadRequest, "invalid_user", err.Error(), nil)
+		return
+	}
+
+	code, err := security.GenerateNumericCode(6)
+	if err != nil {
+		httpx.RespondError(c, http.StatusInternalServerError, "code_generate_failed", err.Error(), nil)
+		return
+	}
+
+	hash := security.HashToken(code)
+	if _, err := h.repo.UpsertFactor(c.Request.Context(), userID, "email", []byte(hash), false); err != nil {
+		httpx.RespondError(c, http.StatusInternalServerError, "email_mfa_setup_failed", err.Error(), nil)
+		return
+	}
+
+	payload := email.TaskPayload{
+		To:      user.Email,
+		Subject: "Verify Email MFA Setup",
+		Text:    "Your verification code is: " + code,
+	}
+	data, _ := json.Marshal(payload)
+	_, _ = h.asynq.Enqueue(asynq.NewTask(ques.TaskEmailOTP, data), asynq.Queue(ques.QueueDefault))
+
+	httpx.Respond(c, http.StatusOK, gin.H{"message": "verification code sent to email"})
+}
+
+// VerifyEmail verifies and enables email MFA
+// @Summary      Verify Email MFA
+// @Description  Verify the email code to enable Email MFA for the user
+// @Tags         mfa
+// @Accept       json
+// @Produce      json
+// @Param        request body EmailVerifyRequest true "Email verification payload"
+// @Success      200  {object}  httpx.Response{data=map[string]bool}
+// @Failure      400  {object}  httpx.Response{error=httpx.ErrorResponse}
+// @Router       /mfa/email/verify [post]
+func (h *Handler) VerifyEmail(c *gin.Context) {
+	userID, err := getUserID(c)
+	if err != nil {
+		httpx.RespondError(c, http.StatusUnauthorized, "session_missing", "authentication required", nil)
+		return
+	}
+
+	var req EmailVerifyRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		httpx.RespondError(c, http.StatusBadRequest, "invalid_payload", err.Error(), nil)
+		return
+	}
+
+	factor, err := h.repo.GetFactor(c.Request.Context(), userID, "email")
+	if err != nil {
+		httpx.RespondError(c, http.StatusBadRequest, "email_mfa_missing", "email mfa not configured", nil)
+		return
+	}
+
+	if security.HashToken(req.Code) != string(factor.SecretEncrypted) {
+		httpx.RespondError(c, http.StatusBadRequest, "email_mfa_invalid", "invalid code", nil)
+		return
+	}
+
+	if err := h.repo.Enable(c.Request.Context(), userID, "email"); err != nil {
 		httpx.RespondError(c, http.StatusInternalServerError, "email_mfa_enable_failed", err.Error(), nil)
 		return
 	}

@@ -127,6 +127,22 @@ func (h *Handler) VerifyMFA(c *gin.Context) {
 	})
 }
 
+func (h *Handler) TriggerMFA(c *gin.Context) {
+	var req MFATriggerRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		httpx.RespondError(c, http.StatusBadRequest, "invalid_payload", err.Error(), nil)
+		return
+	}
+
+	if err := h.service.TriggerMFA(c.Request.Context(), req.ChallengeToken, req.Factor); err != nil {
+		h.handleError(c, err)
+		return
+	}
+
+	httpx.Respond(c, http.StatusOK, gin.H{"triggered": true})
+}
+
+
 // Refresh rotates the session token
 // @Summary      Refresh session
 // @Description  Rotate the session token using a valid session cookie
@@ -372,13 +388,13 @@ func (h *Handler) Me(c *gin.Context) {
 		return
 	}
 
-	user, err := h.service.GetProfile(c.Request.Context(), userID)
+	profile, err := h.service.GetProfile(c.Request.Context(), userID)
 	if err != nil {
 		httpx.RespondError(c, http.StatusNotFound, "user_not_found", "user not found", nil)
 		return
 	}
 
-	httpx.Respond(c, http.StatusOK, mapUser(user))
+	httpx.Respond(c, http.StatusOK, mapProfile(profile))
 }
 
 func getUserID(c *gin.Context) (uuid.UUID, error) {
@@ -399,6 +415,8 @@ func (h *Handler) handleError(c *gin.Context, err error) {
 		httpx.RespondError(c, http.StatusForbidden, "password_disabled", err.Error(), nil)
 	case ErrPasswordAlreadySet:
 		httpx.RespondError(c, http.StatusConflict, "password_already_set", err.Error(), nil)
+	case ErrEmailNotVerified:
+		httpx.RespondError(c, http.StatusForbidden, "email_not_verified", err.Error(), nil)
 	case ErrMFANotConfigured:
 		httpx.RespondError(c, http.StatusBadRequest, "mfa_not_configured", err.Error(), nil)
 	case mfa.ErrInvalidCode:

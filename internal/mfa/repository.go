@@ -131,6 +131,15 @@ func (r *Repository) UpdateChallenge(ctx context.Context, challengeID uuid.UUID,
 	return err
 }
 
+func (r *Repository) UpdateEmailCode(ctx context.Context, challengeID uuid.UUID, codeHash string, expiresAt time.Time) error {
+	query := `
+		UPDATE mfa_challenges
+		SET email_code_hash = $2, expires_at = $3
+		WHERE id = $1`
+	_, err := r.db.Exec(ctx, query, challengeID, codeHash, expiresAt)
+	return err
+}
+
 func scanFactor(row pgx.Row) (*Factor, error) {
 	var factor Factor
 	if err := row.Scan(

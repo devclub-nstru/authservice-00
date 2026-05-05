@@ -33,6 +33,7 @@ var (
 	ErrPasswordAlreadySet = errors.New("password already set")
 	ErrMFARequired        = errors.New("mfa required")
 	ErrMFANotConfigured   = errors.New("mfa not configured")
+	ErrEmailNotVerified   = errors.New("email not verified")
 )
 
 type Service struct {
@@ -41,8 +42,19 @@ type Service struct {
 	sessions   *sessions.Service
 	mfaRepo    *mfa.Repository
 	tokensRepo *tokens.Repository
+	oauthLister OAuthProviderLister
 	asynq      *asynq.Client
 	totpKey    []byte
+}
+
+type OAuthProviderLister interface {
+	ListProvidersByUser(ctx context.Context, userID uuid.UUID) ([]string, error)
+}
+
+type Profile struct {
+	User          *users.User
+	MFAEnabled    []string
+	OAuthAccounts []string
 }
 
 type LoginResult struct {
@@ -54,7 +66,7 @@ type LoginResult struct {
 	SessionExpiry time.Time
 }
 
-func NewService(cfg *config.Config, usersRepo *users.Repository, sessionsService *sessions.Service, mfaRepo *mfa.Repository, tokensRepo *tokens.Repository, asynqClient *asynq.Client) (*Service, error) {
+func NewService(cfg *config.Config, usersRepo *users.Repository, sessionsService *sessions.Service, mfaRepo *mfa.Repository, tokensRepo *tokens.Repository, oauthLister OAuthProviderLister, asynqClient *asynq.Client) (*Service, error) {
 	var key []byte
 	var err error
 	if cfg.TOTPEncryptionKey != "" {
@@ -70,16 +82,43 @@ func NewService(cfg *config.Config, usersRepo *users.Repository, sessionsService
 		sessions:   sessionsService,
 		mfaRepo:    mfaRepo,
 		tokensRepo: tokensRepo,
+		oauthLister: oauthLister,
 		asynq:      asynqClient,
 		totpKey:    key,
 	}, nil
 }
 
-func (s *Service) GetProfile(ctx context.Context, userID uuid.UUID) (*users.User, error) {
-	return s.usersRepo.FindByID(ctx, userID)
+func (s *Service) GetProfile(ctx context.Context, userID uuid.UUID) (*Profile, error) {
+	user, err := s.usersRepo.FindByID(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	factors, err := s.mfaRepo.ListEnabled(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	mfaMethods := make([]string, 0, len(factors))
+	for _, f := range factors {
+		mfaMethods = append(mfaMethods, f.FactorType)
+	}
+
+	providers, err := s.oauthLister.ListProvidersByUser(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Profile{
+		User:          user,
+		MFAEnabled:    mfaMethods,
+		OAuthAccounts: providers,
+	}, nil
 }
 
 func (s *Service) Signup(ctx context.Context, req SignupRequest) (*users.User, error) {
+	if err := security.ValidatePassword(req.Password); err != nil {
+		return nil, err
+	}
 	if _, err := s.usersRepo.FindByEmail(ctx, req.Email); err == nil {
 		return nil, ErrUserExists
 	} else if !errors.Is(err, pgx.ErrNoRows) {
@@ -131,6 +170,10 @@ func (s *Service) Login(ctx context.Context, req LoginRequest, deviceID string, 
 }
 
 func (s *Service) CompleteLogin(ctx context.Context, user *users.User, deviceID string, ipAddress string, userAgent string) (*LoginResult, error) {
+	if !user.EmailVerified {
+		return nil, ErrEmailNotVerified
+	}
+
 	_ = s.usersRepo.UpdateLastLogin(ctx, user.ID)
 
 	factors, err := s.mfaRepo.ListEnabled(ctx, user.ID)
@@ -174,6 +217,10 @@ func (s *Service) VerifyMFA(ctx context.Context, challengeToken string, factor s
 		return nil, err
 	}
 
+	if !user.EmailVerified {
+		return nil, ErrEmailNotVerified
+	}
+
 	if challenge.ConsumedAt != nil || time.Now().After(challenge.ExpiresAt) {
 		return nil, ErrMFANotConfigured
 	}
@@ -215,7 +262,8 @@ func (s *Service) VerifyMFA(ctx context.Context, challengeToken string, factor s
 
 	updated := append(challenge.VerifiedFactors, factor)
 	var consumedAt *time.Time
-	if hasAllFactors(challenge.RequiredFactors, updated) {
+	// Any single verified factor satisfies the MFA requirement
+	if len(updated) > 0 {
 		now := time.Now()
 		consumedAt = &now
 	}
@@ -256,6 +304,44 @@ func (s *Service) VerifyMFA(ctx context.Context, challengeToken string, factor s
 		SessionToken:  token,
 		SessionExpiry: session.ExpiresAt,
 	}, nil
+}
+
+func (s *Service) TriggerMFA(ctx context.Context, challengeToken string, factor string) error {
+	challengeHash := security.HashToken(challengeToken)
+	challenge, err := s.mfaRepo.FindChallengeByTokenHash(ctx, challengeHash)
+	if err != nil {
+		return ErrMFANotConfigured
+	}
+
+	if challenge.ConsumedAt != nil || time.Now().After(challenge.ExpiresAt) {
+		return ErrMFANotConfigured
+	}
+
+	if factor != "email" {
+		return errors.New("unsupported factor trigger")
+	}
+
+	user, err := s.usersRepo.FindByID(ctx, challenge.UserID)
+	if err != nil {
+		return err
+	}
+
+	code, err := security.GenerateNumericCode(6)
+	if err != nil {
+		return err
+	}
+
+	hash := security.HashToken(code + ":" + challengeToken)
+	expiresAt := time.Now().Add(s.cfg.EmailOTPTTL)
+	if err := s.mfaRepo.UpdateEmailCode(ctx, challenge.ID, hash, expiresAt); err != nil {
+		return err
+	}
+
+	return s.enqueueEmail(ctx, ques.TaskEmailOTP, email.TaskPayload{
+		To:      user.Email,
+		Subject: "Your login code",
+		Text:    fmt.Sprintf("Your login code is %s", code),
+	})
 }
 
 func (s *Service) Refresh(ctx context.Context, token string, deviceID string) (*LoginResult, error) {
@@ -311,6 +397,9 @@ func (s *Service) SendPasswordReset(ctx context.Context, emailAddr string) error
 }
 
 func (s *Service) ResetPassword(ctx context.Context, token string, newPassword string) error {
+	if err := security.ValidatePassword(newPassword); err != nil {
+		return err
+	}
 	hash := security.HashToken(token)
 	userID, err := s.tokensRepo.ConsumePasswordReset(ctx, hash)
 	if err != nil {
@@ -326,6 +415,9 @@ func (s *Service) ResetPassword(ctx context.Context, token string, newPassword s
 }
 
 func (s *Service) ChangePassword(ctx context.Context, userID uuid.UUID, current string, next string) error {
+	if err := security.ValidatePassword(next); err != nil {
+		return err
+	}
 	user, err := s.usersRepo.FindByID(ctx, userID)
 	if err != nil {
 		return err
@@ -345,6 +437,9 @@ func (s *Service) ChangePassword(ctx context.Context, userID uuid.UUID, current 
 }
 
 func (s *Service) SetPassword(ctx context.Context, userID uuid.UUID, password string) error {
+	if err := security.ValidatePassword(password); err != nil {
+		return err
+	}
 	user, err := s.usersRepo.FindByID(ctx, userID)
 	if err != nil {
 		return err
@@ -471,6 +566,14 @@ func (s *Service) createMFAChallenge(ctx context.Context, user *users.User, devi
 
 	var methods []string
 	var emailCodeHash *string
+	hasOtherFactors := false
+	for _, factor := range factors {
+		if factor.FactorType != "email" {
+			hasOtherFactors = true
+			break
+		}
+	}
+
 	for _, factor := range factors {
 		methods = append(methods, factor.FactorType)
 		if factor.FactorType == "email" {
@@ -480,12 +583,16 @@ func (s *Service) createMFAChallenge(ctx context.Context, user *users.User, devi
 			}
 			hash := security.HashToken(code + ":" + challengeToken)
 			emailCodeHash = &hash
-			if err := s.enqueueEmail(ctx, ques.TaskEmailOTP, email.TaskPayload{
-				To:      user.Email,
-				Subject: "Your login code",
-				Text:    fmt.Sprintf("Your login code is %s", code),
-			}); err != nil {
-				return "", nil, err
+
+			// Only send immediately if email is the only factor
+			if !hasOtherFactors {
+				if err := s.enqueueEmail(ctx, ques.TaskEmailOTP, email.TaskPayload{
+					To:      user.Email,
+					Subject: "Your login code",
+					Text:    fmt.Sprintf("Your login code is %s", code),
+				}); err != nil {
+					return "", nil, err
+				}
 			}
 		}
 	}

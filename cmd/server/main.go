@@ -53,23 +53,23 @@ func main() {
 	tokensRepo := tokens.NewRepository(pool)
 	oauthRepo := oauth.NewRepository(pool)
 
-	authService, err := auth.NewService(cfg, usersRepo, sessionsService, mfaRepo, tokensRepo, asynqClient)
+	oauthService := oauth.NewService(cfg, oauthRepo, usersRepo, redisClient)
+	authService, err := auth.NewService(cfg, usersRepo, sessionsService, mfaRepo, tokensRepo, oauthService, asynqClient)
 	if err != nil {
 		log.Fatal("Unable to initialize auth service:", err)
 	}
-	oauthService := oauth.NewService(cfg, oauthRepo, usersRepo, redisClient)
 
 	authHandler := auth.NewHandler(authService, cfg)
 	oauthHandler := oauth.NewHandler(oauthService, authService, cfg)
 	sessionsHandler := sessions.NewHandler(sessionsService)
-	mfaHandler, err := mfa.NewHandler(mfaRepo, usersRepo, cfg)
+	mfaHandler, err := mfa.NewHandler(mfaRepo, usersRepo, cfg, asynqClient)
 	if err != nil {
 		log.Fatal("Unable to initialize mfa handler:", err)
 	}
 
 	r := gin.Default()
 	if cfg.AppEnv == "development" {
-		r.Use(middleware.DevStaticDeviceID("dev-device-id"))
+		r.Use(middleware.DevStaticDeviceID("test-1"))
 	}
 	health.RegisterRoutes(r, pool)
 	auth.RegisterRoutes(r, authHandler, cfg, sessionsService, redisClient)

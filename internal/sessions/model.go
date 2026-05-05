@@ -17,6 +17,7 @@ type Session struct {
 	LastSeenAt time.Time
 	ExpiresAt  time.Time
 	RevokedAt  *time.Time
-	IsActive   bool
-	MFAPending bool
+	IsActive      bool
+	MFAPending    bool
+	EmailVerified bool
 }

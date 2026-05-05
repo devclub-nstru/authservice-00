@@ -875,7 +875,7 @@ const docTemplate = `{
         },
         "/mfa/email/enable": {
             "post": {
-                "description": "Enable Email MFA for the user",
+                "description": "Start enabling Email MFA by sending a verification code",
                 "produces": [
                     "application/json"
                 ],
@@ -897,8 +897,75 @@ const docTemplate = `{
                                         "data": {
                                             "type": "object",
                                             "additionalProperties": {
+                                                "type": "string"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/mfa/email/verify": {
+            "post": {
+                "description": "Verify the email code to enable Email MFA for the user",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "mfa"
+                ],
+                "summary": "Verify Email MFA",
+                "parameters": [
+                    {
+                        "description": "Email verification payload",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/mfa.EmailVerifyRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httpx.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "object",
+                                            "additionalProperties": {
                                                 "type": "boolean"
                                             }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httpx.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "error": {
+                                            "$ref": "#/definitions/httpx.ErrorResponse"
                                         }
                                     }
                                 }
@@ -1554,8 +1621,20 @@ const docTemplate = `{
                 "id": {
                     "type": "string"
                 },
+                "mfa_enabled": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "name": {
                     "type": "string"
+                },
+                "oauth_accounts": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 }
             }
         },
@@ -1602,6 +1681,17 @@ const docTemplate = `{
                 },
                 "success": {
                     "type": "boolean"
+                }
+            }
+        },
+        "mfa.EmailVerifyRequest": {
+            "type": "object",
+            "required": [
+                "code"
+            ],
+            "properties": {
+                "code": {
+                    "type": "string"
                 }
             }
         },

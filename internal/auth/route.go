@@ -16,6 +16,7 @@ func RegisterRoutes(r *gin.Engine, handler *Handler, cfg *config.Config, session
 	group.POST("/signup", middleware.RateLimit(redisClient, "rl:signup", cfg.AuthRateLimitPerMinute, time.Minute), handler.Signup)
 	group.POST("/login", middleware.RateLimit(redisClient, "rl:login", cfg.LoginRateLimitPerMinute, time.Minute), handler.Login)
 	group.POST("/mfa/verify", middleware.RateLimit(redisClient, "rl:mfa", cfg.MfaRateLimitPerMinute, time.Minute), handler.VerifyMFA)
+	group.POST("/mfa/trigger", middleware.RateLimit(redisClient, "rl:mfa", cfg.MfaRateLimitPerMinute, time.Minute), handler.TriggerMFA)
 	group.POST("/refresh", handler.Refresh)
 	group.POST("/logout", middleware.RequireSession(cfg, sessionsService), handler.Logout)
 	group.POST("/password/forgot", handler.PasswordForgot)
