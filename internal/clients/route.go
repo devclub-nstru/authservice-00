@@ -13,7 +13,6 @@ func RegisterRoutes(r *gin.Engine, handler *Handler, authMiddleware gin.HandlerF
 	group.POST("/:id/rotate-secret", handler.RotateSecret)
 	group.DELETE("/:id", handler.DeleteClient)
 
-	group.POST("/:id/users", handler.AddMember)
 	group.GET("/:id/users", handler.ListMembers)
 	group.DELETE("/:id/members/:userId", handler.RemoveMember)
 }

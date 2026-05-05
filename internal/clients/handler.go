@@ -210,45 +210,6 @@ func (h *Handler) DeleteClient(c *gin.Context) {
 	httpx.Respond(c, http.StatusOK, gin.H{"deleted": true})
 }
 
-// AddMember adds a user to a client
-// @Summary      Add member
-// @Description  Add a user to a client by email
-// @Tags         clients
-// @Accept       json
-// @Produce      json
-// @Param        id path string true "Client UUID"
-// @Param        request body AddMemberRequest true "Member payload"
-// @Success      201 {object} httpx.Response{data=MemberProfile}
-// @Failure      400 {object} httpx.Response{error=httpx.ErrorResponse}
-// @Router       /clients/{id}/members [post]
-func (h *Handler) AddMember(c *gin.Context) {
-	ownerID, err := getUserID(c)
-	if err != nil {
-		httpx.RespondError(c, http.StatusUnauthorized, "session_missing", "authentication required", nil)
-		return
-	}
-
-	id, err := uuid.Parse(c.Param("id"))
-	if err != nil {
-		httpx.RespondError(c, http.StatusBadRequest, "invalid_id", "invalid client id", nil)
-		return
-	}
-
-	var req AddMemberRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		httpx.RespondError(c, http.StatusBadRequest, "invalid_payload", err.Error(), nil)
-		return
-	}
-
-	member, err := h.service.AddMember(c.Request.Context(), id, ownerID, req.Email, req.Role)
-	if err != nil {
-		h.handleError(c, err)
-		return
-	}
-
-	httpx.Respond(c, http.StatusCreated, member)
-}
-
 // ListMembers lists all users of a client
 // @Summary      List users
 // @Description  List all users who are members of a client
@@ -353,7 +314,6 @@ func mapClientResponse(client *Client, uris []string) ClientResponse {
 		ClientID:     client.ClientID,
 		Name:         client.Name,
 		AvatarURL:    client.AvatarURL,
-		IsPublic:     client.IsPublic,
 		RedirectURIs: uris,
 		CreatedAt:    client.CreatedAt,
 		UpdatedAt:    client.UpdatedAt,

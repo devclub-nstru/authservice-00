@@ -6,7 +6,6 @@ type CreateClientRequest struct {
 	Name         string   `json:"name" binding:"required"`
 	AvatarURL    *string  `json:"avatar_url"`
 	RedirectURIs []string `json:"redirect_uris" binding:"required,min=1"`
-	IsPublic     bool     `json:"is_public"`
 }
 
 type UpdateClientRequest struct {
@@ -25,7 +24,6 @@ type ClientResponse struct {
 	ClientID     string    `json:"client_id"`
 	Name         string    `json:"name"`
 	AvatarURL    *string   `json:"avatar_url,omitempty"`
-	IsPublic     bool      `json:"is_public"`
 	RedirectURIs []string  `json:"redirect_uris"`
 	CreatedAt    time.Time `json:"created_at"`
 	UpdatedAt    time.Time `json:"updated_at"`

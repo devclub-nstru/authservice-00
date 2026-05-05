@@ -59,7 +59,6 @@ func (s *Service) Create(ctx context.Context, ownerID uuid.UUID, req CreateClien
 		ClientSecretHash: secretHash,
 		Name:             req.Name,
 		AvatarURL:        req.AvatarURL,
-		IsPublic:         req.IsPublic,
 	}
 
 	created, err := s.repo.Create(ctx, client, req.RedirectURIs)

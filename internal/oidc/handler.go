@@ -269,7 +269,7 @@ func (h *Handler) handleOAuthError(c *gin.Context, err error) {
 		httpx.RespondError(c, http.StatusBadRequest, "invalid_redirect_uri", err.Error(), nil)
 	case ErrClientSecretInvalid:
 		httpx.RespondError(c, http.StatusUnauthorized, "invalid_client", err.Error(), nil)
-	case ErrPKCEFailed, ErrPKCERequired:
+	case ErrPKCEFailed:
 		httpx.RespondError(c, http.StatusBadRequest, "invalid_grant", err.Error(), nil)
 	case ErrTokenInvalid:
 		httpx.RespondError(c, http.StatusUnauthorized, "invalid_token", err.Error(), nil)

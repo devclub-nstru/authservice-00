@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"time"
 
+	"kael/internal/clients"
 	"kael/internal/config"
 	"kael/internal/email"
 	"kael/internal/mfa"
@@ -37,24 +38,36 @@ var (
 )
 
 type Service struct {
-	cfg         *config.Config
-	usersRepo   *users.Repository
-	sessions    *sessions.Service
-	mfaRepo     *mfa.Repository
-	tokensRepo  *tokens.Repository
-	oauthLister OAuthProviderLister
-	asynq       *asynq.Client
-	totpKey     []byte
+	cfg               *config.Config
+	usersRepo         *users.Repository
+	sessions          *sessions.Service
+	mfaRepo           *mfa.Repository
+	tokensRepo        *tokens.Repository
+	oauthLister       OAuthProviderLister
+	clientConnections ClientConnectionStore
+	oidcTokens        OIDCTokenRevoker
+	asynq             *asynq.Client
+	totpKey           []byte
 }
 
 type OAuthProviderLister interface {
 	ListProvidersByUser(ctx context.Context, userID uuid.UUID) ([]string, error)
 }
 
+type ClientConnectionStore interface {
+	ListConnectedByUser(ctx context.Context, userID uuid.UUID) ([]clients.ConnectedClient, error)
+	RemoveMember(ctx context.Context, clientPK uuid.UUID, userID uuid.UUID) error
+}
+
+type OIDCTokenRevoker interface {
+	RevokeTokensByUserAndClient(ctx context.Context, userID uuid.UUID, clientPK uuid.UUID) error
+}
+
 type Profile struct {
 	User          *users.User
 	MFAEnabled    []string
 	OAuthAccounts []string
+	Clients       []clients.ConnectedClient
 }
 
 type LoginResult struct {
@@ -67,7 +80,7 @@ type LoginResult struct {
 	DeviceID      string
 }
 
-func NewService(cfg *config.Config, usersRepo *users.Repository, sessionsService *sessions.Service, mfaRepo *mfa.Repository, tokensRepo *tokens.Repository, oauthLister OAuthProviderLister, asynqClient *asynq.Client) (*Service, error) {
+func NewService(cfg *config.Config, usersRepo *users.Repository, sessionsService *sessions.Service, mfaRepo *mfa.Repository, tokensRepo *tokens.Repository, oauthLister OAuthProviderLister, clientConnections ClientConnectionStore, oidcTokens OIDCTokenRevoker, asynqClient *asynq.Client) (*Service, error) {
 	var key []byte
 	var err error
 	if cfg.TOTPEncryptionKey != "" {
@@ -78,14 +91,16 @@ func NewService(cfg *config.Config, usersRepo *users.Repository, sessionsService
 	}
 
 	return &Service{
-		cfg:         cfg,
-		usersRepo:   usersRepo,
-		sessions:    sessionsService,
-		mfaRepo:     mfaRepo,
-		tokensRepo:  tokensRepo,
-		oauthLister: oauthLister,
-		asynq:       asynqClient,
-		totpKey:     key,
+		cfg:               cfg,
+		usersRepo:         usersRepo,
+		sessions:          sessionsService,
+		mfaRepo:           mfaRepo,
+		tokensRepo:        tokensRepo,
+		oauthLister:       oauthLister,
+		clientConnections: clientConnections,
+		oidcTokens:        oidcTokens,
+		asynq:             asynqClient,
+		totpKey:           key,
 	}, nil
 }
 
@@ -109,11 +124,30 @@ func (s *Service) GetProfile(ctx context.Context, userID uuid.UUID) (*Profile, e
 		return nil, err
 	}
 
+	var connected []clients.ConnectedClient
+	if s.clientConnections != nil {
+		connected, err = s.clientConnections.ListConnectedByUser(ctx, userID)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	return &Profile{
 		User:          user,
 		MFAEnabled:    mfaMethods,
 		OAuthAccounts: providers,
+		Clients:       connected,
 	}, nil
+}
+
+func (s *Service) DisconnectClient(ctx context.Context, userID uuid.UUID, clientID uuid.UUID) error {
+	if s.oidcTokens == nil || s.clientConnections == nil {
+		return errors.New("client disconnect not configured")
+	}
+	if err := s.oidcTokens.RevokeTokensByUserAndClient(ctx, userID, clientID); err != nil {
+		return err
+	}
+	return s.clientConnections.RemoveMember(ctx, clientID, userID)
 }
 
 func (s *Service) Signup(ctx context.Context, req SignupRequest) (*users.User, error) {

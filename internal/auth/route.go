@@ -27,6 +27,7 @@ func RegisterRoutes(r *gin.Engine, handler *Handler, cfg *config.Config, session
 	authed := r.Group("/auth")
 	authed.Use(middleware.RequireSession(cfg, sessionsService))
 	authed.GET("/me", handler.Me)
+	authed.DELETE("/me/clients/:id", handler.DisconnectClient)
 	authed.POST("/password/change", handler.PasswordChange)
 	authed.POST("/password/set", handler.PasswordSet)
 	authed.POST("/email/update", handler.EmailUpdate)

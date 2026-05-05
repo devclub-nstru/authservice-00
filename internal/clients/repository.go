@@ -25,13 +25,13 @@ func (r *Repository) Create(ctx context.Context, client Client, redirectURIs []s
 	defer func() { _ = tx.Rollback(ctx) }()
 
 	query := `
-		INSERT INTO clients (owner_id, client_id, client_secret_hash, name, avatar_url, is_public)
-		VALUES ($1, $2, $3, $4, $5, $6)
-		RETURNING id, owner_id, client_id, client_secret_hash, name, avatar_url, is_public, created_at, updated_at`
+		INSERT INTO clients (owner_id, client_id, client_secret_hash, name, avatar_url)
+		VALUES ($1, $2, $3, $4, $5)
+		RETURNING id, owner_id, client_id, client_secret_hash, name, avatar_url, created_at, updated_at`
 
 	row := tx.QueryRow(ctx, query,
 		client.OwnerID, client.ClientID, client.ClientSecretHash,
-		client.Name, client.AvatarURL, client.IsPublic,
+		client.Name, client.AvatarURL,
 	)
 
 	created, err := scanClient(row)
@@ -58,21 +58,21 @@ func (r *Repository) Create(ctx context.Context, client Client, redirectURIs []s
 
 func (r *Repository) FindByID(ctx context.Context, id uuid.UUID) (*Client, error) {
 	query := `
-		SELECT id, owner_id, client_id, client_secret_hash, name, avatar_url, is_public, created_at, updated_at
+		SELECT id, owner_id, client_id, client_secret_hash, name, avatar_url, created_at, updated_at
 		FROM clients WHERE id = $1`
 	return scanClient(r.db.QueryRow(ctx, query, id))
 }
 
 func (r *Repository) FindByClientID(ctx context.Context, clientID string) (*Client, error) {
 	query := `
-		SELECT id, owner_id, client_id, client_secret_hash, name, avatar_url, is_public, created_at, updated_at
+		SELECT id, owner_id, client_id, client_secret_hash, name, avatar_url, created_at, updated_at
 		FROM clients WHERE client_id = $1`
 	return scanClient(r.db.QueryRow(ctx, query, clientID))
 }
 
 func (r *Repository) ListByOwner(ctx context.Context, ownerID uuid.UUID) ([]Client, error) {
 	query := `
-		SELECT id, owner_id, client_id, client_secret_hash, name, avatar_url, is_public, created_at, updated_at
+		SELECT id, owner_id, client_id, client_secret_hash, name, avatar_url, created_at, updated_at
 		FROM clients WHERE owner_id = $1 ORDER BY created_at DESC`
 
 	rows, err := r.db.Query(ctx, query, ownerID)
@@ -245,11 +245,36 @@ func (r *Repository) ListMembers(ctx context.Context, clientPK uuid.UUID) ([]Mem
 	return members, rows.Err()
 }
 
+func (r *Repository) ListConnectedByUser(ctx context.Context, userID uuid.UUID) ([]ConnectedClient, error) {
+	query := `
+		SELECT c.id, c.client_id, c.name, c.avatar_url, m.role, m.created_at
+		FROM client_memberships m
+		JOIN clients c ON m.client_id = c.id
+		WHERE m.user_id = $1
+		ORDER BY m.created_at DESC`
+
+	rows, err := r.db.Query(ctx, query, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var clients []ConnectedClient
+	for rows.Next() {
+		var cc ConnectedClient
+		if err := rows.Scan(&cc.ID, &cc.ClientID, &cc.Name, &cc.AvatarURL, &cc.Role, &cc.ConnectedAt); err != nil {
+			return nil, err
+		}
+		clients = append(clients, cc)
+	}
+	return clients, rows.Err()
+}
+
 func scanClient(row pgx.Row) (*Client, error) {
 	var c Client
 	if err := row.Scan(
 		&c.ID, &c.OwnerID, &c.ClientID, &c.ClientSecretHash,
-		&c.Name, &c.AvatarURL, &c.IsPublic, &c.CreatedAt, &c.UpdatedAt,
+		&c.Name, &c.AvatarURL, &c.CreatedAt, &c.UpdatedAt,
 	); err != nil {
 		return nil, err
 	}

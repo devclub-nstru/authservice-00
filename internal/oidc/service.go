@@ -23,7 +23,6 @@ var (
 	ErrMFAPending          = errors.New("mfa verification required")
 	ErrCodeExpired         = errors.New("authorization code expired or consumed")
 	ErrCodeInvalid         = errors.New("invalid authorization code")
-	ErrPKCERequired        = errors.New("PKCE code_challenge required for public clients")
 	ErrPKCEFailed          = errors.New("PKCE verification failed")
 	ErrClientSecretInvalid = errors.New("invalid client_secret")
 	ErrTokenInvalid        = errors.New("invalid or expired token")
@@ -89,10 +88,6 @@ func (s *Service) Authorize(ctx context.Context, params AuthorizeParams, userID 
 	valid, err := s.clientRepo.HasRedirectURI(ctx, client.ID, params.RedirectURI)
 	if err != nil || !valid {
 		return nil, ErrInvalidRedirectURI
-	}
-
-	if client.IsPublic && params.CodeChallenge == "" {
-		return nil, ErrPKCERequired
 	}
 
 	scope := params.Scope
@@ -182,14 +177,12 @@ func (s *Service) ExchangeCode(ctx context.Context, req TokenRequest) (*TokenRes
 		return nil, ErrInvalidRedirectURI
 	}
 
-	if !client.IsPublic {
-		if req.ClientSecret == "" {
-			return nil, ErrClientSecretInvalid
-		}
-		secretHash := security.HashToken(req.ClientSecret)
-		if secretHash != client.ClientSecretHash {
-			return nil, ErrClientSecretInvalid
-		}
+	if req.ClientSecret == "" {
+		return nil, ErrClientSecretInvalid
+	}
+	secretHash := security.HashToken(req.ClientSecret)
+	if secretHash != client.ClientSecretHash {
+		return nil, ErrClientSecretInvalid
 	}
 
 	if authCode.CodeChallenge != nil && *authCode.CodeChallenge != "" {
@@ -223,14 +216,12 @@ func (s *Service) RefreshTokens(ctx context.Context, req TokenRequest) (*TokenRe
 		return nil, ErrInvalidClient
 	}
 
-	if !client.IsPublic {
-		if req.ClientSecret == "" {
-			return nil, ErrClientSecretInvalid
-		}
-		secretHash := security.HashToken(req.ClientSecret)
-		if secretHash != client.ClientSecretHash {
-			return nil, ErrClientSecretInvalid
-		}
+	if req.ClientSecret == "" {
+		return nil, ErrClientSecretInvalid
+	}
+	secretHash := security.HashToken(req.ClientSecret)
+	if secretHash != client.ClientSecretHash {
+		return nil, ErrClientSecretInvalid
 	}
 
 	refreshHash := security.HashToken(req.RefreshToken)
@@ -316,18 +307,18 @@ func (s *Service) Discovery() *DiscoveryDocument {
 	}
 
 	return &DiscoveryDocument{
-		Issuer:                           issuer,
-		AuthorizationEndpoint:            issuer + "/oidc/authorize",
-		TokenEndpoint:                    issuer + "/oidc/token",
-		UserinfoEndpoint:                 issuer + "/oidc/userinfo",
-		RevocationEndpoint:               issuer + "/oidc/revoke",
-		ResponseTypesSupported:           []string{"code"},
-		SubjectTypesSupported:            []string{"public"},
-		IDTokenSigningAlgValuesSupported: []string{"HS256"},
-		ScopesSupported:                  []string{"openid", "profile", "email"},
+		Issuer:                            issuer,
+		AuthorizationEndpoint:             issuer + "/oidc/authorize",
+		TokenEndpoint:                     issuer + "/oidc/token",
+		UserinfoEndpoint:                  issuer + "/oidc/userinfo",
+		RevocationEndpoint:                issuer + "/oidc/revoke",
+		ResponseTypesSupported:            []string{"code"},
+		SubjectTypesSupported:             []string{"public"},
+		IDTokenSigningAlgValuesSupported:  []string{"HS256"},
+		ScopesSupported:                   []string{"openid", "profile", "email"},
 		TokenEndpointAuthMethodsSupported: []string{"client_secret_post"},
-		CodeChallengeMethodsSupported:    []string{"S256"},
-		GrantTypesSupported:              []string{"authorization_code", "refresh_token"},
+		CodeChallengeMethodsSupported:     []string{"S256"},
+		GrantTypesSupported:               []string{"authorization_code", "refresh_token"},
 	}
 }
 

@@ -13,7 +13,6 @@ type Client struct {
 	ClientSecretHash string    `json:"-"`
 	Name             string    `json:"name"`
 	AvatarURL        *string   `json:"avatar_url,omitempty"`
-	IsPublic         bool      `json:"is_public"`
 	CreatedAt        time.Time `json:"created_at"`
 	UpdatedAt        time.Time `json:"updated_at"`
 }
@@ -39,4 +38,13 @@ type MemberProfile struct {
 	AvatarURL *string   `json:"avatar_url,omitempty"`
 	Role      string    `json:"role"`
 	JoinedAt  time.Time `json:"joined_at"`
+}
+
+type ConnectedClient struct {
+	ID          uuid.UUID `json:"id"`
+	ClientID    string    `json:"client_id"`
+	Name        string    `json:"name"`
+	AvatarURL   *string   `json:"avatar_url,omitempty"`
+	Role        string    `json:"role"`
+	ConnectedAt time.Time `json:"connected_at"`
 }

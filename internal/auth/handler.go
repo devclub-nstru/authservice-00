@@ -377,7 +377,7 @@ func (h *Handler) EmailUpdate(c *gin.Context) {
 
 // Me returns the current user profile
 // @Summary      Get current user
-// @Description  Get the profile of the currently authenticated user
+// @Description  Get the profile of the currently authenticated user, including connected clients
 // @Tags         auth
 // @Produce      json
 // @Success      200  {object}  httpx.Response{data=UserResponse}
@@ -397,6 +397,37 @@ func (h *Handler) Me(c *gin.Context) {
 	}
 
 	httpx.Respond(c, http.StatusOK, mapProfile(profile))
+}
+
+// DisconnectClient disconnects the current user from a client
+// @Summary      Disconnect client
+// @Description  Disconnect the current user from a client and revoke all client tokens
+// @Tags         auth
+// @Produce      json
+// @Param        id path string true "Client UUID"
+// @Success      200  {object}  httpx.Response{data=map[string]bool}
+// @Failure      400  {object}  httpx.Response{error=httpx.ErrorResponse}
+// @Failure      401  {object}  httpx.Response{error=httpx.ErrorResponse}
+// @Router       /auth/me/clients/{id} [delete]
+func (h *Handler) DisconnectClient(c *gin.Context) {
+	userID, err := getUserID(c)
+	if err != nil {
+		httpx.RespondError(c, http.StatusUnauthorized, "session_missing", "authentication required", nil)
+		return
+	}
+
+	clientID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		httpx.RespondError(c, http.StatusBadRequest, "invalid_id", "invalid client id", nil)
+		return
+	}
+
+	if err := h.service.DisconnectClient(c.Request.Context(), userID, clientID); err != nil {
+		httpx.RespondError(c, http.StatusInternalServerError, "disconnect_failed", err.Error(), nil)
+		return
+	}
+
+	httpx.Respond(c, http.StatusOK, gin.H{"disconnected": true})
 }
 
 func getUserID(c *gin.Context) (uuid.UUID, error) {

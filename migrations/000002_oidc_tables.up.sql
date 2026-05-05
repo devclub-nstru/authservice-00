@@ -5,7 +5,6 @@ CREATE TABLE IF NOT EXISTS clients (
     client_secret_hash text NOT NULL,
     name               text NOT NULL,
     avatar_url         text,
-    is_public          boolean NOT NULL DEFAULT false,
     created_at         timestamptz NOT NULL DEFAULT now(),
     updated_at         timestamptz NOT NULL DEFAULT now()
 );

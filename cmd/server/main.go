@@ -54,18 +54,16 @@ func main() {
 	mfaRepo := mfa.NewRepository(pool)
 	tokensRepo := tokens.NewRepository(pool)
 	oauthRepo := oauth.NewRepository(pool)
+	clientsRepo := clients.NewRepository(pool)
+	oidcRepo := oidc.NewRepository(pool)
 
 	oauthService := oauth.NewService(cfg, oauthRepo, usersRepo, redisClient)
-	authService, err := auth.NewService(cfg, usersRepo, sessionsService, mfaRepo, tokensRepo, oauthService, asynqClient)
+	authService, err := auth.NewService(cfg, usersRepo, sessionsService, mfaRepo, tokensRepo, oauthService, clientsRepo, oidcRepo, asynqClient)
 	if err != nil {
 		log.Fatal("Unable to initialize auth service:", err)
 	}
-
-	clientsRepo := clients.NewRepository(pool)
 	clientsService := clients.NewService(clientsRepo, usersRepo)
 	clientsHandler := clients.NewHandler(clientsService)
-
-	oidcRepo := oidc.NewRepository(pool)
 	oidcService, err := oidc.NewService(cfg, oidcRepo, clientsRepo, usersRepo)
 	if err != nil {
 		log.Fatal("Unable to initialize OIDC service:", err)
