@@ -28,9 +28,10 @@ func RedisClientOpt(cfg *config.Config) (asynq.RedisClientOpt, error) {
 			return asynq.RedisClientOpt{}, fmt.Errorf("failed to parse REDIS_URL: %w", err)
 		}
 		return asynq.RedisClientOpt{
-			Addr:     opts.Addr,
-			Password: opts.Password,
-			DB:       opts.DB,
+			Addr:      opts.Addr,
+			Password:  opts.Password,
+			DB:        opts.DB,
+			TLSConfig: opts.TLSConfig,
 		}, nil
 	}
 
