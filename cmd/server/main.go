@@ -22,7 +22,7 @@ import (
 
 // @title           Kael API
 // @version         1.0
-// @description     Auth API for devclub services.
+// @description     Auth API for DevClub services.
 // @BasePath        /
 func main() {
 	cfg, err := config.Load()
