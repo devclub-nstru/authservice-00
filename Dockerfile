@@ -1,5 +1,5 @@
 # Build stage
-FROM golang:1.22-alpine AS builder
+FROM golang:1.24-alpine AS builder
 
 WORKDIR /app
 
@@ -27,7 +27,7 @@ COPY --from=builder /app/bin/server /app/server
 COPY --from=builder /app/bin/worker /app/worker
 
 # Expose port (default 8080)
-EXPOSE 8080
+EXPOSE 8000
 
 # The default command will be overridden by docker-compose for the worker
 CMD ["/app/server"]
