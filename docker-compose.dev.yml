@@ -8,6 +8,8 @@ services:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: kael
+    ports:
+      - "5433:5432"
     volumes:
       - db_data:/var/lib/postgresql/data
 

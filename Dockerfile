@@ -28,7 +28,7 @@ COPY --from=builder /app/bin/worker /app/worker
 COPY --from=builder /app/.keys /app/.keys
 
 # Expose port (default 8080)
-EXPOSE 8000
+EXPOSE 8080
 
 # The default command will be overridden by docker-compose for the worker
 CMD ["/app/server"]
