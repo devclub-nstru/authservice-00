@@ -1,7 +1,7 @@
 {
     "swagger": "2.0",
     "info": {
-        "description": "Auth API for devclub services.",
+        "description": "Auth API for DevClub services.",
         "title": "Kael API",
         "contact": {},
         "version": "1.0"
@@ -2670,6 +2670,12 @@
         "clients.ClientResponse": {
             "type": "object",
             "properties": {
+                "allowed_origins": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "avatar_url": {
                     "type": "string"
                 },
@@ -2703,6 +2709,12 @@
                 "redirect_uris"
             ],
             "properties": {
+                "allowed_origins": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "avatar_url": {
                     "type": "string"
                 },
@@ -2763,6 +2775,12 @@
         "clients.UpdateClientRequest": {
             "type": "object",
             "properties": {
+                "allowed_origins": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "avatar_url": {
                     "type": "string"
                 },

@@ -1,0 +1,10 @@
+FROM golang:1.25.7-alpine
+
+WORKDIR /app
+
+# Install development tools
+RUN go install github.com/air-verse/air@v1.61.0
+RUN go install github.com/swaggo/swag/cmd/swag@latest
+
+# The source code will be mounted at runtime
+CMD ["air", "-c", ".air.toml"]

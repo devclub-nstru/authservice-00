@@ -41,14 +41,14 @@ func (h *Handler) CreateClient(c *gin.Context) {
 		return
 	}
 
-	client, secret, uris, err := h.service.Create(c.Request.Context(), ownerID, req)
+	client, secret, uris, origins, err := h.service.Create(c.Request.Context(), ownerID, req)
 	if err != nil {
 		h.handleError(c, err)
 		return
 	}
 
 	httpx.Respond(c, http.StatusCreated, CreateClientResponse{
-		Client:       mapClientResponse(client, uris),
+		Client:       mapClientResponse(client, uris, origins),
 		ClientSecret: secret,
 	})
 }
@@ -75,7 +75,7 @@ func (h *Handler) ListClients(c *gin.Context) {
 
 	result := make([]ClientResponse, 0, len(clients))
 	for _, cl := range clients {
-		result = append(result, mapClientResponse(&cl, nil))
+		result = append(result, mapClientResponse(&cl, nil, nil))
 	}
 	httpx.Respond(c, http.StatusOK, result)
 }
@@ -102,13 +102,13 @@ func (h *Handler) GetClient(c *gin.Context) {
 		return
 	}
 
-	client, uris, err := h.service.Get(c.Request.Context(), id, ownerID)
+	client, uris, origins, err := h.service.Get(c.Request.Context(), id, ownerID)
 	if err != nil {
 		h.handleError(c, err)
 		return
 	}
 
-	httpx.Respond(c, http.StatusOK, mapClientResponse(client, uris))
+	httpx.Respond(c, http.StatusOK, mapClientResponse(client, uris, origins))
 }
 
 // UpdateClient updates client metadata
@@ -305,17 +305,21 @@ func (h *Handler) handleError(c *gin.Context, err error) {
 	}
 }
 
-func mapClientResponse(client *Client, uris []string) ClientResponse {
+func mapClientResponse(client *Client, uris []string, origins []string) ClientResponse {
 	if uris == nil {
 		uris = []string{}
 	}
+	if origins == nil {
+		origins = []string{}
+	}
 	return ClientResponse{
-		ID:           client.ID.String(),
-		ClientID:     client.ClientID,
-		Name:         client.Name,
-		AvatarURL:    client.AvatarURL,
-		RedirectURIs: uris,
-		CreatedAt:    client.CreatedAt,
-		UpdatedAt:    client.UpdatedAt,
+		ID:             client.ID.String(),
+		ClientID:       client.ClientID,
+		Name:           client.Name,
+		AvatarURL:      client.AvatarURL,
+		RedirectURIs:   uris,
+		AllowedOrigins: origins,
+		CreatedAt:      client.CreatedAt,
+		UpdatedAt:      client.UpdatedAt,
 	}
 }

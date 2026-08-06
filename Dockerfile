@@ -13,6 +13,7 @@ COPY . .
 # Build the server and worker binaries
 RUN CGO_ENABLED=0 GOOS=linux go build -o /app/bin/server ./cmd/server
 RUN CGO_ENABLED=0 GOOS=linux go build -o /app/bin/worker ./cmd/worker
+RUN CGO_ENABLED=0 GOOS=linux go build -o /app/bin/migrate ./cmd/migrate
 
 # Final stage
 FROM alpine:latest
@@ -25,6 +26,7 @@ RUN apk --no-cache add ca-certificates tzdata
 # Copy binaries from builder
 COPY --from=builder /app/bin/server /app/server
 COPY --from=builder /app/bin/worker /app/worker
+COPY --from=builder /app/bin/migrate /app/migrate
 COPY --from=builder /app/.keys /app/.keys
 
 # Expose port (default 8080)

@@ -129,7 +129,7 @@ func (h *Handler) start(c *gin.Context, provider string, mode string, userID *uu
 func (h *Handler) callback(c *gin.Context, provider string) {
 	code := c.Query("code")
 	state := c.Query("state")
-	redirect := strings.ToLower(c.DefaultQuery("redirect", "false")) == "true"
+	redirect := true // Always redirect back to frontend
 
 	if code == "" || state == "" {
 		h.renderCallback(c, redirect, "missing_code", "missing oauth code", nil)
@@ -188,7 +188,12 @@ func (h *Handler) renderCallback(c *gin.Context, redirect bool, errCode string, 
 		return
 	}
 
-	callbackURL, _ := url.Parse(h.cfg.FrontendBaseURL + "/oauth/callback")
+	var callbackURL *url.URL
+	if errCode != "" {
+		callbackURL, _ = url.Parse(h.cfg.FrontendBaseURL + "/login")
+	} else {
+		callbackURL, _ = url.Parse(h.cfg.FrontendBaseURL + "/dashboard")
+	}
 	query := callbackURL.Query()
 	if errCode != "" {
 		query.Set("status", "error")

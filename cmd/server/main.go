@@ -62,7 +62,7 @@ func main() {
 	if err != nil {
 		log.Fatal("Unable to initialize auth service:", err)
 	}
-	clientsService := clients.NewService(clientsRepo, usersRepo)
+	clientsService := clients.NewService(clientsRepo, usersRepo, redisClient)
 	clientsHandler := clients.NewHandler(clientsService)
 	oidcService, err := oidc.NewService(cfg, oidcRepo, clientsRepo, usersRepo)
 	if err != nil {
@@ -79,7 +79,7 @@ func main() {
 	}
 
 	r := gin.Default()
-	r.Use(middleware.CORS(cfg))
+	r.Use(middleware.CORS(cfg, redisClient, pool))
 	health.RegisterRoutes(r, pool)
 	auth.RegisterRoutes(r, authHandler, cfg, sessionsService)
 	oauth.RegisterRoutes(r, oauthHandler, cfg, sessionsService)

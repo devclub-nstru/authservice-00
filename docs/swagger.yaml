@@ -149,6 +149,10 @@ definitions:
     type: object
   clients.ClientResponse:
     properties:
+      allowed_origins:
+        items:
+          type: string
+        type: array
       avatar_url:
         type: string
       client_id:
@@ -168,6 +172,10 @@ definitions:
     type: object
   clients.CreateClientRequest:
     properties:
+      allowed_origins:
+        items:
+          type: string
+        type: array
       avatar_url:
         type: string
       name:
@@ -210,6 +218,10 @@ definitions:
     type: object
   clients.UpdateClientRequest:
     properties:
+      allowed_origins:
+        items:
+          type: string
+        type: array
       avatar_url:
         type: string
       name:
@@ -376,7 +388,7 @@ definitions:
     type: object
 info:
   contact: {}
-  description: Auth API for devclub services.
+  description: Auth API for DevClub services.
   title: Kael API
   version: "1.0"
 paths:

@@ -17,7 +17,7 @@ func NewRepository(db *pgxpool.Pool) *Repository {
 	return &Repository{db: db}
 }
 
-func (r *Repository) Create(ctx context.Context, client Client, redirectURIs []string) (*Client, error) {
+func (r *Repository) Create(ctx context.Context, client Client, redirectURIs []string, allowedOrigins []string) (*Client, error) {
 	tx, err := r.db.Begin(ctx)
 	if err != nil {
 		return nil, err
@@ -43,6 +43,16 @@ func (r *Repository) Create(ctx context.Context, client Client, redirectURIs []s
 		_, err := tx.Exec(ctx,
 			`INSERT INTO client_redirect_uris (client_id, uri) VALUES ($1, $2)`,
 			created.ID, uri,
+		)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	for _, origin := range allowedOrigins {
+		_, err := tx.Exec(ctx,
+			`INSERT INTO client_allowed_origins (client_id, origin) VALUES ($1, $2)`,
+			created.ID, origin,
 		)
 		if err != nil {
 			return nil, err
@@ -92,7 +102,7 @@ func (r *Repository) ListByOwner(ctx context.Context, ownerID uuid.UUID) ([]Clie
 	return clients, rows.Err()
 }
 
-func (r *Repository) Update(ctx context.Context, id uuid.UUID, name *string, avatarURL *string, redirectURIs []string) error {
+func (r *Repository) Update(ctx context.Context, id uuid.UUID, name *string, avatarURL *string, redirectURIs []string, allowedOrigins []string) error {
 	tx, err := r.db.Begin(ctx)
 	if err != nil {
 		return err
@@ -135,6 +145,22 @@ func (r *Repository) Update(ctx context.Context, id uuid.UUID, name *string, ava
 		}
 	}
 
+	if allowedOrigins != nil {
+		_, err := tx.Exec(ctx, `DELETE FROM client_allowed_origins WHERE client_id = $1`, id)
+		if err != nil {
+			return err
+		}
+		for _, origin := range allowedOrigins {
+			_, err := tx.Exec(ctx,
+				`INSERT INTO client_allowed_origins (client_id, origin) VALUES ($1, $2)`,
+				id, origin,
+			)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
 	return tx.Commit(ctx)
 }
 
@@ -170,6 +196,27 @@ func (r *Repository) ListRedirectURIs(ctx context.Context, clientPK uuid.UUID) (
 		uris = append(uris, uri)
 	}
 	return uris, rows.Err()
+}
+
+func (r *Repository) ListAllowedOrigins(ctx context.Context, clientPK uuid.UUID) ([]string, error) {
+	rows, err := r.db.Query(ctx,
+		`SELECT origin FROM client_allowed_origins WHERE client_id = $1`,
+		clientPK,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var origins []string
+	for rows.Next() {
+		var origin string
+		if err := rows.Scan(&origin); err != nil {
+			return nil, err
+		}
+		origins = append(origins, origin)
+	}
+	return origins, rows.Err()
 }
 
 func (r *Repository) HasRedirectURI(ctx context.Context, clientPK uuid.UUID, uri string) (bool, error) {

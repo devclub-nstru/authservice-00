@@ -10,6 +10,7 @@ import (
 	"kael/internal/users"
 
 	"github.com/google/uuid"
+	"github.com/redis/go-redis/v9"
 )
 
 var (
@@ -22,33 +23,34 @@ var (
 )
 
 type Service struct {
-	repo      *Repository
-	usersRepo *users.Repository
+	repo        *Repository
+	usersRepo   *users.Repository
+	redisClient *redis.Client
 }
 
-func NewService(repo *Repository, usersRepo *users.Repository) *Service {
-	return &Service{repo: repo, usersRepo: usersRepo}
+func NewService(repo *Repository, usersRepo *users.Repository, redisClient *redis.Client) *Service {
+	return &Service{repo: repo, usersRepo: usersRepo, redisClient: redisClient}
 }
 
-func (s *Service) Create(ctx context.Context, ownerID uuid.UUID, req CreateClientRequest) (*Client, string, []string, error) {
+func (s *Service) Create(ctx context.Context, ownerID uuid.UUID, req CreateClientRequest) (*Client, string, []string, []string, error) {
 	if len(req.RedirectURIs) == 0 {
-		return nil, "", nil, ErrNoRedirectURIs
+		return nil, "", nil, nil, ErrNoRedirectURIs
 	}
 	for _, uri := range req.RedirectURIs {
 		if err := validateRedirectURI(uri); err != nil {
-			return nil, "", nil, fmt.Errorf("%w: %s", ErrInvalidURI, uri)
+			return nil, "", nil, nil, fmt.Errorf("%w: %s", ErrInvalidURI, uri)
 		}
 	}
 
 	clientIDSuffix, err := security.GenerateToken(24)
 	if err != nil {
-		return nil, "", nil, err
+		return nil, "", nil, nil, err
 	}
 	clientID := "kael_" + clientIDSuffix
 
 	rawSecret, err := security.GenerateToken(48)
 	if err != nil {
-		return nil, "", nil, err
+		return nil, "", nil, nil, err
 	}
 	clientSecret := "kaelsec_" + rawSecret
 	secretHash := security.HashToken(clientSecret)
@@ -61,27 +63,34 @@ func (s *Service) Create(ctx context.Context, ownerID uuid.UUID, req CreateClien
 		AvatarURL:        req.AvatarURL,
 	}
 
-	created, err := s.repo.Create(ctx, client, req.RedirectURIs)
+	created, err := s.repo.Create(ctx, client, req.RedirectURIs, req.AllowedOrigins)
 	if err != nil {
-		return nil, "", nil, err
+		return nil, "", nil, nil, err
 	}
 
-	return created, clientSecret, req.RedirectURIs, nil
+	// Invalidate CORS cache
+	s.redisClient.Del(ctx, "cors:allowed_origins")
+
+	return created, clientSecret, req.RedirectURIs, req.AllowedOrigins, nil
 }
 
-func (s *Service) Get(ctx context.Context, id uuid.UUID, ownerID uuid.UUID) (*Client, []string, error) {
+func (s *Service) Get(ctx context.Context, id uuid.UUID, ownerID uuid.UUID) (*Client, []string, []string, error) {
 	client, err := s.repo.FindByID(ctx, id)
 	if err != nil {
-		return nil, nil, ErrClientNotFound
+		return nil, nil, nil, ErrClientNotFound
 	}
 	if client.OwnerID != ownerID {
-		return nil, nil, ErrNotOwner
+		return nil, nil, nil, ErrNotOwner
 	}
 	uris, err := s.repo.ListRedirectURIs(ctx, client.ID)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
-	return client, uris, nil
+	origins, err := s.repo.ListAllowedOrigins(ctx, client.ID)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	return client, uris, origins, nil
 }
 
 func (s *Service) List(ctx context.Context, ownerID uuid.UUID) ([]Client, error) {
@@ -108,7 +117,12 @@ func (s *Service) Update(ctx context.Context, id uuid.UUID, ownerID uuid.UUID, r
 		}
 	}
 
-	return s.repo.Update(ctx, id, req.Name, req.AvatarURL, req.RedirectURIs)
+	err = s.repo.Update(ctx, id, req.Name, req.AvatarURL, req.RedirectURIs, req.AllowedOrigins)
+	if err == nil {
+		// Invalidate CORS cache
+		s.redisClient.Del(ctx, "cors:allowed_origins")
+	}
+	return err
 }
 
 func (s *Service) RotateSecret(ctx context.Context, id uuid.UUID, ownerID uuid.UUID) (string, error) {
@@ -141,7 +155,12 @@ func (s *Service) Delete(ctx context.Context, id uuid.UUID, ownerID uuid.UUID) e
 	if client.OwnerID != ownerID {
 		return ErrNotOwner
 	}
-	return s.repo.Delete(ctx, id)
+	err = s.repo.Delete(ctx, id)
+	if err == nil {
+		// Invalidate CORS cache
+		s.redisClient.Del(ctx, "cors:allowed_origins")
+	}
+	return err
 }
 
 func (s *Service) AddMember(ctx context.Context, clientPK uuid.UUID, ownerID uuid.UUID, email string, role string) (*MemberProfile, error) {

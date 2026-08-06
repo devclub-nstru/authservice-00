@@ -4,14 +4,16 @@ import "time"
 
 type CreateClientRequest struct {
 	Name         string   `json:"name" binding:"required"`
-	AvatarURL    *string  `json:"avatar_url"`
-	RedirectURIs []string `json:"redirect_uris" binding:"required,min=1"`
+	AvatarURL      *string  `json:"avatar_url"`
+	RedirectURIs   []string `json:"redirect_uris" binding:"required,min=1"`
+	AllowedOrigins []string `json:"allowed_origins"`
 }
 
 type UpdateClientRequest struct {
 	Name         *string  `json:"name"`
-	AvatarURL    *string  `json:"avatar_url"`
-	RedirectURIs []string `json:"redirect_uris"`
+	AvatarURL      *string  `json:"avatar_url"`
+	RedirectURIs   []string `json:"redirect_uris"`
+	AllowedOrigins []string `json:"allowed_origins"`
 }
 
 type AddMemberRequest struct {
@@ -23,8 +25,9 @@ type ClientResponse struct {
 	ID           string    `json:"id"`
 	ClientID     string    `json:"client_id"`
 	Name         string    `json:"name"`
-	AvatarURL    *string   `json:"avatar_url,omitempty"`
-	RedirectURIs []string  `json:"redirect_uris"`
+	AvatarURL      *string   `json:"avatar_url,omitempty"`
+	RedirectURIs   []string  `json:"redirect_uris"`
+	AllowedOrigins []string  `json:"allowed_origins"`
 	CreatedAt    time.Time `json:"created_at"`
 	UpdatedAt    time.Time `json:"updated_at"`
 }
