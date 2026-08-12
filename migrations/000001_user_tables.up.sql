@@ -13,7 +13,6 @@ CREATE TABLE IF NOT EXISTS users (
 	updated_at timestamptz NOT NULL DEFAULT now(),
 	last_login_at timestamptz
 );
-
 CREATE TABLE IF NOT EXISTS oauth_accounts (
 	id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
 	user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
