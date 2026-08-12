@@ -23,11 +23,12 @@ WORKDIR /app
 # Install CA certificates for TLS
 RUN apk --no-cache add ca-certificates tzdata
 
-# Copy binaries from builder
+# Copy binaries and assets from builder
 COPY --from=builder /app/bin/server /app/server
 COPY --from=builder /app/bin/worker /app/worker
 COPY --from=builder /app/bin/migrate /app/migrate
 COPY --from=builder /app/.keys /app/.keys
+COPY --from=builder /app/migrations /app/migrations
 
 # Expose port (default 8080)
 EXPOSE 8080
