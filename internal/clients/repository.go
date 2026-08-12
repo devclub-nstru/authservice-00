@@ -25,13 +25,13 @@ func (r *Repository) Create(ctx context.Context, client Client, redirectURIs []s
 	defer func() { _ = tx.Rollback(ctx) }()
 
 	query := `
-		INSERT INTO clients (owner_id, client_id, client_secret_hash, name, avatar_url)
-		VALUES ($1, $2, $3, $4, $5)
-		RETURNING id, owner_id, client_id, client_secret_hash, name, avatar_url, created_at, updated_at`
+		INSERT INTO clients (owner_id, client_id, client_secret_hash, name, avatar_url, frontchannel_logout_uri, backchannel_logout_uri)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		RETURNING id, owner_id, client_id, client_secret_hash, name, avatar_url, frontchannel_logout_uri, backchannel_logout_uri, created_at, updated_at`
 
 	row := tx.QueryRow(ctx, query,
 		client.OwnerID, client.ClientID, client.ClientSecretHash,
-		client.Name, client.AvatarURL,
+		client.Name, client.AvatarURL, client.FrontChannelLogoutURI, client.BackChannelLogoutURI,
 	)
 
 	created, err := scanClient(row)
@@ -68,21 +68,21 @@ func (r *Repository) Create(ctx context.Context, client Client, redirectURIs []s
 
 func (r *Repository) FindByID(ctx context.Context, id uuid.UUID) (*Client, error) {
 	query := `
-		SELECT id, owner_id, client_id, client_secret_hash, name, avatar_url, created_at, updated_at
+		SELECT id, owner_id, client_id, client_secret_hash, name, avatar_url, frontchannel_logout_uri, backchannel_logout_uri, created_at, updated_at
 		FROM clients WHERE id = $1`
 	return scanClient(r.db.QueryRow(ctx, query, id))
 }
 
 func (r *Repository) FindByClientID(ctx context.Context, clientID string) (*Client, error) {
 	query := `
-		SELECT id, owner_id, client_id, client_secret_hash, name, avatar_url, created_at, updated_at
+		SELECT id, owner_id, client_id, client_secret_hash, name, avatar_url, frontchannel_logout_uri, backchannel_logout_uri, created_at, updated_at
 		FROM clients WHERE client_id = $1`
 	return scanClient(r.db.QueryRow(ctx, query, clientID))
 }
 
 func (r *Repository) ListByOwner(ctx context.Context, ownerID uuid.UUID) ([]Client, error) {
 	query := `
-		SELECT id, owner_id, client_id, client_secret_hash, name, avatar_url, created_at, updated_at
+		SELECT id, owner_id, client_id, client_secret_hash, name, avatar_url, frontchannel_logout_uri, backchannel_logout_uri, created_at, updated_at
 		FROM clients WHERE owner_id = $1 ORDER BY created_at DESC`
 
 	rows, err := r.db.Query(ctx, query, ownerID)
@@ -102,7 +102,7 @@ func (r *Repository) ListByOwner(ctx context.Context, ownerID uuid.UUID) ([]Clie
 	return clients, rows.Err()
 }
 
-func (r *Repository) Update(ctx context.Context, id uuid.UUID, name *string, avatarURL *string, redirectURIs []string, allowedOrigins []string) error {
+func (r *Repository) Update(ctx context.Context, id uuid.UUID, name *string, avatarURL *string, redirectURIs []string, allowedOrigins []string, frontchannelLogoutURI *string, backchannelLogoutURI *string) error {
 	tx, err := r.db.Begin(ctx)
 	if err != nil {
 		return err
@@ -123,6 +123,26 @@ func (r *Repository) Update(ctx context.Context, id uuid.UUID, name *string, ava
 		_, err := tx.Exec(ctx,
 			`UPDATE clients SET avatar_url = $2, updated_at = $3 WHERE id = $1`,
 			id, *avatarURL, time.Now(),
+		)
+		if err != nil {
+			return err
+		}
+	}
+
+	if frontchannelLogoutURI != nil {
+		_, err := tx.Exec(ctx,
+			`UPDATE clients SET frontchannel_logout_uri = $2, updated_at = $3 WHERE id = $1`,
+			id, *frontchannelLogoutURI, time.Now(),
+		)
+		if err != nil {
+			return err
+		}
+	}
+
+	if backchannelLogoutURI != nil {
+		_, err := tx.Exec(ctx,
+			`UPDATE clients SET backchannel_logout_uri = $2, updated_at = $3 WHERE id = $1`,
+			id, *backchannelLogoutURI, time.Now(),
 		)
 		if err != nil {
 			return err
@@ -321,7 +341,7 @@ func scanClient(row pgx.Row) (*Client, error) {
 	var c Client
 	if err := row.Scan(
 		&c.ID, &c.OwnerID, &c.ClientID, &c.ClientSecretHash,
-		&c.Name, &c.AvatarURL, &c.CreatedAt, &c.UpdatedAt,
+		&c.Name, &c.AvatarURL, &c.FrontChannelLogoutURI, &c.BackChannelLogoutURI, &c.CreatedAt, &c.UpdatedAt,
 	); err != nil {
 		return nil, err
 	}

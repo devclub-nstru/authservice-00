@@ -1948,7 +1948,7 @@
         },
         "/oidc/authorize": {
             "get": {
-                "description": "Start the OIDC Authorization Code flow. Requires an active platform session.",
+                "description": "Start or resume the OIDC Authorization Code flow.",
                 "tags": [
                     "oidc"
                 ],
@@ -1956,24 +1956,27 @@
                 "parameters": [
                     {
                         "type": "string",
+                        "description": "Authorization transaction ID",
+                        "name": "tx",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
                         "description": "Client ID",
                         "name": "client_id",
-                        "in": "query",
-                        "required": true
+                        "in": "query"
                     },
                     {
                         "type": "string",
                         "description": "Redirect URI",
                         "name": "redirect_uri",
-                        "in": "query",
-                        "required": true
+                        "in": "query"
                     },
                     {
                         "type": "string",
                         "description": "Response type (must be 'code')",
                         "name": "response_type",
-                        "in": "query",
-                        "required": true
+                        "in": "query"
                     },
                     {
                         "type": "string",
@@ -2008,10 +2011,169 @@
                 ],
                 "responses": {
                     "302": {
-                        "description": "Redirect to login if no session"
+                        "description": "Redirect to client or frontend consent/login page"
                     },
                     "400": {
                         "description": "Bad Request",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httpx.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "error": {
+                                            "$ref": "#/definitions/httpx.ErrorResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/oidc/consent": {
+            "post": {
+                "description": "Approve or deny requested scopes for a pending authorization transaction",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "oidc"
+                ],
+                "summary": "Submit OIDC Consent",
+                "parameters": [
+                    {
+                        "description": "Consent decision payload",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/oidc.ConsentSubmitRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httpx.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/oidc.ConsentSubmitResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httpx.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "error": {
+                                            "$ref": "#/definitions/httpx.ErrorResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httpx.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "error": {
+                                            "$ref": "#/definitions/httpx.ErrorResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/oidc/consent/details": {
+            "get": {
+                "description": "Fetch client metadata and requested scopes for consent prompt",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "oidc"
+                ],
+                "summary": "Get OIDC Consent Details",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Authorization transaction ID",
+                        "name": "tx",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httpx.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/oidc.ConsentDetailsResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/httpx.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "error": {
+                                            "$ref": "#/definitions/httpx.ErrorResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
                         "schema": {
                             "allOf": [
                                 {
@@ -2082,6 +2244,38 @@
             }
         },
         "/oidc/logout": {
+            "get": {
+                "description": "End the user session and logout from all connected client applications",
+                "tags": [
+                    "oidc"
+                ],
+                "summary": "OIDC RP-initiated Logout",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID Token Hint",
+                        "name": "id_token_hint",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Post Logout Redirect URI",
+                        "name": "post_logout_redirect_uri",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "State parameter to return",
+                        "name": "state",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "302": {
+                        "description": "Redirect to post_logout_redirect_uri or login page"
+                    }
+                }
+            },
             "post": {
                 "description": "Revoke all tokens for the client associated with the access token",
                 "produces": [
@@ -2679,10 +2873,16 @@
                 "avatar_url": {
                     "type": "string"
                 },
+                "backchannel_logout_uri": {
+                    "type": "string"
+                },
                 "client_id": {
                     "type": "string"
                 },
                 "created_at": {
+                    "type": "string"
+                },
+                "frontchannel_logout_uri": {
                     "type": "string"
                 },
                 "id": {
@@ -2716,6 +2916,12 @@
                     }
                 },
                 "avatar_url": {
+                    "type": "string"
+                },
+                "backchannel_logout_uri": {
+                    "type": "string"
+                },
+                "frontchannel_logout_uri": {
                     "type": "string"
                 },
                 "name": {
@@ -2782,6 +2988,12 @@
                     }
                 },
                 "avatar_url": {
+                    "type": "string"
+                },
+                "backchannel_logout_uri": {
+                    "type": "string"
+                },
+                "frontchannel_logout_uri": {
                     "type": "string"
                 },
                 "name": {
@@ -2863,17 +3075,127 @@
                 }
             }
         },
+        "oidc.ConsentClientInfo": {
+            "type": "object",
+            "properties": {
+                "avatar_url": {
+                    "type": "string"
+                },
+                "domain": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "oidc.ConsentDetailsResponse": {
+            "type": "object",
+            "properties": {
+                "client": {
+                    "$ref": "#/definitions/oidc.ConsentClientInfo"
+                },
+                "scopes": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/oidc.ConsentScopeItem"
+                    }
+                },
+                "transaction_id": {
+                    "type": "string"
+                },
+                "user": {
+                    "$ref": "#/definitions/oidc.ConsentUserInfo"
+                }
+            }
+        },
+        "oidc.ConsentScopeItem": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "is_new": {
+                    "type": "boolean"
+                },
+                "key": {
+                    "type": "string"
+                },
+                "title": {
+                    "type": "string"
+                }
+            }
+        },
+        "oidc.ConsentSubmitRequest": {
+            "type": "object",
+            "required": [
+                "decision",
+                "transaction_id"
+            ],
+            "properties": {
+                "decision": {
+                    "description": "allow or deny",
+                    "type": "string"
+                },
+                "transaction_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "oidc.ConsentSubmitResponse": {
+            "type": "object",
+            "properties": {
+                "redirect_url": {
+                    "type": "string"
+                }
+            }
+        },
+        "oidc.ConsentUserInfo": {
+            "type": "object",
+            "properties": {
+                "avatar_url": {
+                    "type": "string"
+                },
+                "email": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
         "oidc.DiscoveryDocument": {
             "type": "object",
             "properties": {
                 "authorization_endpoint": {
                     "type": "string"
                 },
+                "backchannel_logout_session_supported": {
+                    "type": "boolean"
+                },
+                "backchannel_logout_supported": {
+                    "type": "boolean"
+                },
                 "code_challenge_methods_supported": {
                     "type": "array",
                     "items": {
                         "type": "string"
                     }
+                },
+                "end_session_endpoint": {
+                    "type": "string"
+                },
+                "frontchannel_logout_session_supported": {
+                    "type": "boolean"
+                },
+                "frontchannel_logout_supported": {
+                    "type": "boolean"
                 },
                 "grant_types_supported": {
                     "type": "array",

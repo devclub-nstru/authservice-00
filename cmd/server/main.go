@@ -68,6 +68,7 @@ func main() {
 	if err != nil {
 		log.Fatal("Unable to initialize OIDC service:", err)
 	}
+	authService.SetSLOHandler(oidcService)
 	oidcHandler := oidc.NewHandler(oidcService, cfg, sessionsService)
 
 	authHandler := auth.NewHandler(authService, cfg)

@@ -155,9 +155,13 @@ definitions:
         type: array
       avatar_url:
         type: string
+      backchannel_logout_uri:
+        type: string
       client_id:
         type: string
       created_at:
+        type: string
+      frontchannel_logout_uri:
         type: string
       id:
         type: string
@@ -177,6 +181,10 @@ definitions:
           type: string
         type: array
       avatar_url:
+        type: string
+      backchannel_logout_uri:
+        type: string
+      frontchannel_logout_uri:
         type: string
       name:
         type: string
@@ -223,6 +231,10 @@ definitions:
           type: string
         type: array
       avatar_url:
+        type: string
+      backchannel_logout_uri:
+        type: string
+      frontchannel_logout_uri:
         type: string
       name:
         type: string
@@ -276,14 +288,86 @@ definitions:
     required:
     - code
     type: object
+  oidc.ConsentClientInfo:
+    properties:
+      avatar_url:
+        type: string
+      domain:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+    type: object
+  oidc.ConsentDetailsResponse:
+    properties:
+      client:
+        $ref: '#/definitions/oidc.ConsentClientInfo'
+      scopes:
+        items:
+          $ref: '#/definitions/oidc.ConsentScopeItem'
+        type: array
+      transaction_id:
+        type: string
+      user:
+        $ref: '#/definitions/oidc.ConsentUserInfo'
+    type: object
+  oidc.ConsentScopeItem:
+    properties:
+      description:
+        type: string
+      is_new:
+        type: boolean
+      key:
+        type: string
+      title:
+        type: string
+    type: object
+  oidc.ConsentSubmitRequest:
+    properties:
+      decision:
+        description: allow or deny
+        type: string
+      transaction_id:
+        type: string
+    required:
+    - decision
+    - transaction_id
+    type: object
+  oidc.ConsentSubmitResponse:
+    properties:
+      redirect_url:
+        type: string
+    type: object
+  oidc.ConsentUserInfo:
+    properties:
+      avatar_url:
+        type: string
+      email:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+    type: object
   oidc.DiscoveryDocument:
     properties:
       authorization_endpoint:
         type: string
+      backchannel_logout_session_supported:
+        type: boolean
+      backchannel_logout_supported:
+        type: boolean
       code_challenge_methods_supported:
         items:
           type: string
         type: array
+      end_session_endpoint:
+        type: string
+      frontchannel_logout_session_supported:
+        type: boolean
+      frontchannel_logout_supported:
+        type: boolean
       grant_types_supported:
         items:
           type: string
@@ -1510,23 +1594,23 @@ paths:
       - oauth
   /oidc/authorize:
     get:
-      description: Start the OIDC Authorization Code flow. Requires an active platform
-        session.
+      description: Start or resume the OIDC Authorization Code flow.
       parameters:
+      - description: Authorization transaction ID
+        in: query
+        name: tx
+        type: string
       - description: Client ID
         in: query
         name: client_id
-        required: true
         type: string
       - description: Redirect URI
         in: query
         name: redirect_uri
-        required: true
         type: string
       - description: Response type (must be 'code')
         in: query
         name: response_type
-        required: true
         type: string
       - description: Requested scopes
         in: query
@@ -1550,7 +1634,7 @@ paths:
         type: string
       responses:
         "302":
-          description: Redirect to login if no session
+          description: Redirect to client or frontend consent/login page
         "400":
           description: Bad Request
           schema:
@@ -1561,6 +1645,93 @@ paths:
                   $ref: '#/definitions/httpx.ErrorResponse'
               type: object
       summary: OIDC Authorize
+      tags:
+      - oidc
+  /oidc/consent:
+    post:
+      consumes:
+      - application/json
+      description: Approve or deny requested scopes for a pending authorization transaction
+      parameters:
+      - description: Consent decision payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/oidc.ConsentSubmitRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/httpx.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/oidc.ConsentSubmitResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            allOf:
+            - $ref: '#/definitions/httpx.Response'
+            - properties:
+                error:
+                  $ref: '#/definitions/httpx.ErrorResponse'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            allOf:
+            - $ref: '#/definitions/httpx.Response'
+            - properties:
+                error:
+                  $ref: '#/definitions/httpx.ErrorResponse'
+              type: object
+      summary: Submit OIDC Consent
+      tags:
+      - oidc
+  /oidc/consent/details:
+    get:
+      description: Fetch client metadata and requested scopes for consent prompt
+      parameters:
+      - description: Authorization transaction ID
+        in: query
+        name: tx
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/httpx.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/oidc.ConsentDetailsResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            allOf:
+            - $ref: '#/definitions/httpx.Response'
+            - properties:
+                error:
+                  $ref: '#/definitions/httpx.ErrorResponse'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            allOf:
+            - $ref: '#/definitions/httpx.Response'
+            - properties:
+                error:
+                  $ref: '#/definitions/httpx.ErrorResponse'
+              type: object
+      summary: Get OIDC Consent Details
       tags:
       - oidc
   /oidc/introspect:
@@ -1594,6 +1765,27 @@ paths:
       tags:
       - oidc
   /oidc/logout:
+    get:
+      description: End the user session and logout from all connected client applications
+      parameters:
+      - description: ID Token Hint
+        in: query
+        name: id_token_hint
+        type: string
+      - description: Post Logout Redirect URI
+        in: query
+        name: post_logout_redirect_uri
+        type: string
+      - description: State parameter to return
+        in: query
+        name: state
+        type: string
+      responses:
+        "302":
+          description: Redirect to post_logout_redirect_uri or login page
+      summary: OIDC RP-initiated Logout
+      tags:
+      - oidc
     post:
       description: Revoke all tokens for the client associated with the access token
       produces:

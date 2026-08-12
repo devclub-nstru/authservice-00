@@ -46,6 +46,7 @@ type Service struct {
 	oauthLister       OAuthProviderLister
 	clientConnections ClientConnectionStore
 	oidcTokens        OIDCTokenRevoker
+	sloHandler        SingleLogoutHandler
 	asynq             *asynq.Client
 	totpKey           []byte
 }
@@ -61,6 +62,10 @@ type ClientConnectionStore interface {
 
 type OIDCTokenRevoker interface {
 	RevokeTokensByUserAndClient(ctx context.Context, userID uuid.UUID, clientPK uuid.UUID) error
+}
+
+type SingleLogoutHandler interface {
+	PerformSingleLogout(ctx context.Context, sessionID uuid.UUID) ([]string, error)
 }
 
 type Profile struct {
@@ -420,8 +425,25 @@ func (s *Service) ensureDeviceID(deviceID string) (string, error) {
 	return security.GenerateToken(16)
 }
 
-func (s *Service) Logout(ctx context.Context, token string) error {
-	return s.sessions.RevokeByToken(ctx, token)
+func (s *Service) SetSLOHandler(handler SingleLogoutHandler) {
+	s.sloHandler = handler
+}
+
+func (s *Service) Logout(ctx context.Context, userID uuid.UUID, sessionID uuid.UUID) ([]string, error) {
+	var frontChannelURLs []string
+	var err error
+	if s.sloHandler != nil {
+		frontChannelURLs, err = s.sloHandler.PerformSingleLogout(ctx, sessionID)
+		if err != nil {
+			// Log error but proceed with revoking the session
+		}
+	}
+
+	if err := s.sessions.Revoke(ctx, userID, sessionID); err != nil {
+		return nil, err
+	}
+
+	return frontChannelURLs, nil
 }
 
 func (s *Service) SendPasswordReset(ctx context.Context, emailAddr string) error {

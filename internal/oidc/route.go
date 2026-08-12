@@ -8,10 +8,13 @@ func RegisterRoutes(r *gin.Engine, handler *Handler) {
 
 	group := r.Group("/oidc")
 	group.GET("/authorize", handler.Authorize)
+	group.GET("/consent/details", handler.GetConsentDetails)
+	group.POST("/consent", handler.SubmitConsent)
 	group.POST("/token", handler.Token)
 	group.GET("/userinfo", handler.UserInfo)
 	group.POST("/userinfo", handler.UserInfo)
 	group.POST("/revoke", handler.Revoke)
 	group.POST("/logout", handler.Logout)
+	group.GET("/logout", handler.OIDCLogout)
 	group.POST("/introspect", handler.Introspect)
 }

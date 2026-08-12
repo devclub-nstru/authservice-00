@@ -30,6 +30,7 @@ type IDTokenClaims struct {
 	EmailVerified bool    `json:"email_verified,omitempty"`
 	Name          *string `json:"name,omitempty"`
 	Picture       *string `json:"picture,omitempty"`
+	Sid           string  `json:"sid,omitempty"`
 }
 
 type jwtHeader struct {
@@ -124,7 +125,7 @@ func BuildJWKS(kp *RSAKeyPair) *JWKSDocument {
 }
 
 // BuildIDTokenClaims constructs the standard claim set for an ID token.
-func BuildIDTokenClaims(issuer string, userID uuid.UUID, clientID string, nonce *string, email string, emailVerified bool, name *string, avatarURL *string, ttl time.Duration) IDTokenClaims {
+func BuildIDTokenClaims(issuer string, userID uuid.UUID, clientID string, nonce *string, email string, emailVerified bool, name *string, avatarURL *string, sid string, ttl time.Duration) IDTokenClaims {
 	now := time.Now()
 	claims := IDTokenClaims{
 		Iss:           issuer,
@@ -136,6 +137,7 @@ func BuildIDTokenClaims(issuer string, userID uuid.UUID, clientID string, nonce 
 		EmailVerified: emailVerified,
 		Name:          name,
 		Picture:       avatarURL,
+		Sid:           sid,
 	}
 	if nonce != nil {
 		claims.Nonce = *nonce
@@ -259,4 +261,75 @@ func splitJWT(token string) (parts []string, header, claims, sig string, err err
 	claims = token[dot1+1 : dot2]
 	sig = token[dot2+1:]
 	return []string{header, claims, sig}, header, claims, sig, nil
+}
+
+type AccessTokenClaims struct {
+	Iss      string `json:"iss"`
+	Sub      string `json:"sub"`
+	Aud      string `json:"aud"`
+	Exp      int64  `json:"exp"`
+	Iat      int64  `json:"iat"`
+	ClientID string `json:"client_id"`
+	Scope    string `json:"scope,omitempty"`
+	Jti      string `json:"jti"`
+}
+
+func SignAccessTokenRS256(kp *RSAKeyPair, claims AccessTokenClaims) (string, error) {
+	header := jwtHeader{Alg: "RS256", Typ: "JWT", Kid: kp.KeyID}
+
+	headerJSON, err := json.Marshal(header)
+	if err != nil {
+		return "", err
+	}
+	claimsJSON, err := json.Marshal(claims)
+	if err != nil {
+		return "", err
+	}
+
+	headerEncoded := base64.RawURLEncoding.EncodeToString(headerJSON)
+	claimsEncoded := base64.RawURLEncoding.EncodeToString(claimsJSON)
+	signingInput := headerEncoded + "." + claimsEncoded
+
+	digest := sha256.Sum256([]byte(signingInput))
+	sig, err := rsa.SignPKCS1v15(rand.Reader, kp.PrivateKey, crypto.SHA256, digest[:])
+	if err != nil {
+		return "", fmt.Errorf("failed to sign access token: %w", err)
+	}
+
+	return signingInput + "." + base64.RawURLEncoding.EncodeToString(sig), nil
+}
+
+type LogoutTokenClaims struct {
+	Iss    string                 `json:"iss"`
+	Sub    string                 `json:"sub,omitempty"`
+	Aud    string                 `json:"aud"`
+	Iat    int64                  `json:"iat"`
+	Jti    string                 `json:"jti"`
+	Sid    string                 `json:"sid,omitempty"`
+	Events map[string]interface{} `json:"events"`
+}
+
+func SignLogoutTokenRS256(kp *RSAKeyPair, claims LogoutTokenClaims) (string, error) {
+	header := jwtHeader{Alg: "RS256", Typ: "JWT", Kid: kp.KeyID}
+
+	headerJSON, err := json.Marshal(header)
+	if err != nil {
+		return "", err
+	}
+	claimsJSON, err := json.Marshal(claims)
+	if err != nil {
+		return "", err
+	}
+
+	headerEncoded := base64.RawURLEncoding.EncodeToString(headerJSON)
+	claimsEncoded := base64.RawURLEncoding.EncodeToString(claimsJSON)
+	signingInput := headerEncoded + "." + claimsEncoded
+
+	digest := sha256.Sum256([]byte(signingInput))
+	sig, err := rsa.SignPKCS1v15(rand.Reader, kp.PrivateKey, crypto.SHA256, digest[:])
+	if err != nil {
+		return "", fmt.Errorf("failed to sign logout token: %w", err)
+	}
+
+	return signingInput + "." + base64.RawURLEncoding.EncodeToString(sig), nil
 }

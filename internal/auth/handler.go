@@ -183,12 +183,22 @@ func (h *Handler) Refresh(c *gin.Context) {
 // @Success      200  {object}  httpx.Response{data=map[string]bool}
 // @Router       /auth/logout [post]
 func (h *Handler) Logout(c *gin.Context) {
-	cookieValue, err := c.Cookie(h.cfg.SessionCookieName)
-	if err == nil && cookieValue != "" {
-		if token, _, ok := sessions.DecodeCookieValue(cookieValue); ok {
-			_ = h.service.Logout(c.Request.Context(), token)
+	userIDStr, ok1 := c.Get(ctxkeys.UserIDKey)
+	sessionIDStr, ok2 := c.Get(ctxkeys.SessionIDKey)
+	if ok1 && ok2 {
+		userID, _ := uuid.Parse(userIDStr.(string))
+		sessionID, _ := uuid.Parse(sessionIDStr.(string))
+		frontChannelURLs, err := h.service.Logout(c.Request.Context(), userID, sessionID)
+		if err == nil {
+			ClearSessionCookie(c, h.cfg)
+			httpx.Respond(c, http.StatusOK, gin.H{
+				"logged_out":               true,
+				"frontchannel_logout_urls": frontChannelURLs,
+			})
+			return
 		}
 	}
+
 	ClearSessionCookie(c, h.cfg)
 	httpx.Respond(c, http.StatusOK, gin.H{"logged_out": true})
 }

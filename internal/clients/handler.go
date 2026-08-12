@@ -313,13 +313,15 @@ func mapClientResponse(client *Client, uris []string, origins []string) ClientRe
 		origins = []string{}
 	}
 	return ClientResponse{
-		ID:             client.ID.String(),
-		ClientID:       client.ClientID,
-		Name:           client.Name,
-		AvatarURL:      client.AvatarURL,
-		RedirectURIs:   uris,
-		AllowedOrigins: origins,
-		CreatedAt:      client.CreatedAt,
-		UpdatedAt:      client.UpdatedAt,
+		ID:                    client.ID.String(),
+		ClientID:              client.ClientID,
+		Name:                  client.Name,
+		AvatarURL:             client.AvatarURL,
+		RedirectURIs:          uris,
+		AllowedOrigins:        origins,
+		FrontChannelLogoutURI: client.FrontChannelLogoutURI,
+		BackChannelLogoutURI:  client.BackChannelLogoutURI,
+		CreatedAt:             client.CreatedAt,
+		UpdatedAt:             client.UpdatedAt,
 	}
 }

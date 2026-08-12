@@ -56,11 +56,13 @@ func (s *Service) Create(ctx context.Context, ownerID uuid.UUID, req CreateClien
 	secretHash := security.HashToken(clientSecret)
 
 	client := Client{
-		OwnerID:          ownerID,
-		ClientID:         clientID,
-		ClientSecretHash: secretHash,
-		Name:             req.Name,
-		AvatarURL:        req.AvatarURL,
+		OwnerID:               ownerID,
+		ClientID:              clientID,
+		ClientSecretHash:      secretHash,
+		Name:                  req.Name,
+		AvatarURL:             req.AvatarURL,
+		FrontChannelLogoutURI: req.FrontChannelLogoutURI,
+		BackChannelLogoutURI:  req.BackChannelLogoutURI,
 	}
 
 	created, err := s.repo.Create(ctx, client, req.RedirectURIs, req.AllowedOrigins)
@@ -117,7 +119,7 @@ func (s *Service) Update(ctx context.Context, id uuid.UUID, ownerID uuid.UUID, r
 		}
 	}
 
-	err = s.repo.Update(ctx, id, req.Name, req.AvatarURL, req.RedirectURIs, req.AllowedOrigins)
+	err = s.repo.Update(ctx, id, req.Name, req.AvatarURL, req.RedirectURIs, req.AllowedOrigins, req.FrontChannelLogoutURI, req.BackChannelLogoutURI)
 	if err == nil {
 		// Invalidate CORS cache
 		s.redisClient.Del(ctx, "cors:allowed_origins")
