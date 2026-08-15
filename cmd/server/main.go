@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+	"time"
 
 	"kael/internal/auth"
 	"kael/internal/clients"
@@ -13,6 +14,7 @@ import (
 	"kael/internal/oauth"
 	"kael/internal/oidc"
 	"kael/internal/ques"
+	"kael/internal/rbac"
 	"kael/internal/sessions"
 	"kael/internal/tokens"
 	"kael/internal/users"
@@ -56,6 +58,7 @@ func main() {
 	oauthRepo := oauth.NewRepository(pool)
 	clientsRepo := clients.NewRepository(pool)
 	oidcRepo := oidc.NewRepository(pool)
+	rbacRepo := rbac.NewRepository(pool)
 
 	oauthService := oauth.NewService(cfg, oauthRepo, usersRepo, redisClient)
 	authService, err := auth.NewService(cfg, usersRepo, sessionsService, mfaRepo, tokensRepo, oauthService, clientsRepo, oidcRepo, asynqClient)
@@ -71,6 +74,9 @@ func main() {
 	authService.SetSLOHandler(oidcService)
 	oidcHandler := oidc.NewHandler(oidcService, cfg, sessionsService)
 
+	rbacService := rbac.NewService(rbacRepo, usersRepo)
+	rbacHandler := rbac.NewHandler(rbacService)
+
 	authHandler := auth.NewHandler(authService, cfg)
 	oauthHandler := oauth.NewHandler(oauthService, authService, cfg)
 	sessionsHandler := sessions.NewHandler(sessionsService)
@@ -80,14 +86,22 @@ func main() {
 	}
 
 	r := gin.Default()
+	r.Use(middleware.SecurityHeaders())
 	r.Use(middleware.CORS(cfg, redisClient, pool))
 	health.RegisterRoutes(r, pool)
 	auth.RegisterRoutes(r, authHandler, cfg, sessionsService)
 	oauth.RegisterRoutes(r, oauthHandler, cfg, sessionsService)
-	sessions.RegisterRoutes(r, sessionsHandler, middleware.RequireSession(cfg, sessionsService))
+	sessions.RegisterRoutes(r, sessionsHandler, middleware.RequireSession(cfg, sessionsService),
+		middleware.RateLimit("rl:sessions:user", cfg.SessionRateLimitPerMinute, time.Minute, middleware.ExtractUser()),
+		middleware.RateLimit("rl:sessions:ip", cfg.SessionRateLimitPerMinute, time.Minute, middleware.ExtractIP()),
+	)
 	mfa.RegisterRoutes(r, mfaHandler, cfg, sessionsService)
-	clients.RegisterRoutes(r, clientsHandler, middleware.RequireSession(cfg, sessionsService))
-	oidc.RegisterRoutes(r, oidcHandler)
+	clients.RegisterRoutes(r, clientsHandler, middleware.RequireSession(cfg, sessionsService),
+		middleware.RateLimit("rl:clients:user", cfg.ClientRateLimitPerMinute, time.Minute, middleware.ExtractUser()),
+		middleware.RateLimit("rl:clients:ip", cfg.ClientRateLimitPerMinute, time.Minute, middleware.ExtractIP()),
+	)
+	oidc.RegisterRoutes(r, oidcHandler, cfg)
+	rbac.RegisterRoutes(r, rbacHandler, clientsRepo, cfg)
 
 	log.Printf("Server starting on port %s", cfg.Port)
 	if err := r.Run(":" + cfg.Port); err != nil {

@@ -24,7 +24,15 @@ func (r *Repository) Create(ctx context.Context, params CreateUserParams) (*User
 		RETURNING id, email, email_verified, password_hash, password_enabled, name, avatar_url, created_at, updated_at, last_login_at`
 
 	row := r.db.QueryRow(ctx, query, params.Email, params.EmailVerified, params.PasswordHash, params.PasswordEnabled, params.Name, params.AvatarURL)
-	return scanUser(row)
+	user, err := scanUser(row)
+	if err != nil {
+		return nil, err
+	}
+
+	// Auto-bind any pending RBAC group assignments created before the user registered
+	_, _ = r.db.Exec(ctx, `UPDATE client_user_permission_groups SET user_id = $1 WHERE email = $2 AND user_id IS NULL`, user.ID, user.Email)
+
+	return user, nil
 }
 
 func (r *Repository) FindByEmail(ctx context.Context, email string) (*User, error) {

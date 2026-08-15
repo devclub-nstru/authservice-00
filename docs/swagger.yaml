@@ -470,6 +470,139 @@ definitions:
       sub:
         type: string
     type: object
+  rbac.AssignUserGroupRequest:
+    properties:
+      email:
+        type: string
+      group_id:
+        type: string
+      group_name:
+        type: string
+    required:
+    - email
+    type: object
+  rbac.AssignUserGroupResponse:
+    properties:
+      email:
+        type: string
+      group_id:
+        type: string
+      group_name:
+        type: string
+      status:
+        type: string
+      user_exists:
+        type: boolean
+      user_id:
+        type: string
+    type: object
+  rbac.CreateGroupRequest:
+    properties:
+      description:
+        type: string
+      name:
+        type: string
+      permission_ids:
+        items:
+          type: string
+        type: array
+    required:
+    - name
+    type: object
+  rbac.CreatePermissionRequest:
+    properties:
+      description:
+        type: string
+      name:
+        type: string
+      value:
+        type: string
+    required:
+    - name
+    - value
+    type: object
+  rbac.Permission:
+    properties:
+      client_id:
+        type: string
+      created_at:
+        type: string
+      description:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      updated_at:
+        type: string
+      value:
+        type: string
+    type: object
+  rbac.PermissionGroup:
+    properties:
+      client_id:
+        type: string
+      created_at:
+        type: string
+      description:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      permissions:
+        items:
+          $ref: '#/definitions/rbac.Permission'
+        type: array
+      updated_at:
+        type: string
+    type: object
+  rbac.UnassignUserGroupRequest:
+    properties:
+      email:
+        type: string
+      group_id:
+        type: string
+      group_name:
+        type: string
+    required:
+    - email
+    type: object
+  rbac.UpdateGroupRequest:
+    properties:
+      description:
+        type: string
+      name:
+        type: string
+      permission_ids:
+        items:
+          type: string
+        type: array
+    type: object
+  rbac.UpdatePermissionRequest:
+    properties:
+      description:
+        type: string
+      name:
+        type: string
+      value:
+        type: string
+    type: object
+  rbac.UserPermissionsResult:
+    properties:
+      email:
+        type: string
+      groups:
+        items:
+          $ref: '#/definitions/rbac.PermissionGroup'
+        type: array
+      permissions:
+        items:
+          $ref: '#/definitions/rbac.Permission'
+        type: array
+      user_id:
+        type: string
+    type: object
 info:
   contact: {}
   description: Auth API for DevClub services.
@@ -502,6 +635,568 @@ paths:
       summary: OIDC Discovery
       tags:
       - oidc
+  /api/v1/m2m/rbac/groups:
+    get:
+      description: List all permission groups for the client
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/httpx.Response'
+            - properties:
+                data:
+                  properties:
+                    groups:
+                      items:
+                        $ref: '#/definitions/rbac.PermissionGroup'
+                      type: array
+                  type: object
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            allOf:
+            - $ref: '#/definitions/httpx.Response'
+            - properties:
+                error:
+                  $ref: '#/definitions/httpx.ErrorResponse'
+              type: object
+      summary: List groups
+      tags:
+      - rbac
+    post:
+      consumes:
+      - application/json
+      description: Create a new permission group
+      parameters:
+      - description: Group creation payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/rbac.CreateGroupRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/httpx.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/rbac.PermissionGroup'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            allOf:
+            - $ref: '#/definitions/httpx.Response'
+            - properties:
+                error:
+                  $ref: '#/definitions/httpx.ErrorResponse'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            allOf:
+            - $ref: '#/definitions/httpx.Response'
+            - properties:
+                error:
+                  $ref: '#/definitions/httpx.ErrorResponse'
+              type: object
+      summary: Create group
+      tags:
+      - rbac
+  /api/v1/m2m/rbac/groups/{id}:
+    delete:
+      description: Delete a permission group by ID
+      parameters:
+      - description: Group ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            allOf:
+            - $ref: '#/definitions/httpx.Response'
+            - properties:
+                error:
+                  $ref: '#/definitions/httpx.ErrorResponse'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            allOf:
+            - $ref: '#/definitions/httpx.Response'
+            - properties:
+                error:
+                  $ref: '#/definitions/httpx.ErrorResponse'
+              type: object
+      summary: Delete group
+      tags:
+      - rbac
+    get:
+      description: Get a permission group by ID
+      parameters:
+      - description: Group ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/httpx.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/rbac.PermissionGroup'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            allOf:
+            - $ref: '#/definitions/httpx.Response'
+            - properties:
+                error:
+                  $ref: '#/definitions/httpx.ErrorResponse'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            allOf:
+            - $ref: '#/definitions/httpx.Response'
+            - properties:
+                error:
+                  $ref: '#/definitions/httpx.ErrorResponse'
+              type: object
+        "404":
+          description: Not Found
+          schema:
+            allOf:
+            - $ref: '#/definitions/httpx.Response'
+            - properties:
+                error:
+                  $ref: '#/definitions/httpx.ErrorResponse'
+              type: object
+      summary: Get group
+      tags:
+      - rbac
+    put:
+      consumes:
+      - application/json
+      description: Update a permission group's attributes and permissions
+      parameters:
+      - description: Group ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Update payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/rbac.UpdateGroupRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/httpx.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/rbac.PermissionGroup'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            allOf:
+            - $ref: '#/definitions/httpx.Response'
+            - properties:
+                error:
+                  $ref: '#/definitions/httpx.ErrorResponse'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            allOf:
+            - $ref: '#/definitions/httpx.Response'
+            - properties:
+                error:
+                  $ref: '#/definitions/httpx.ErrorResponse'
+              type: object
+      summary: Update group
+      tags:
+      - rbac
+  /api/v1/m2m/rbac/permissions:
+    get:
+      description: List all permissions for the client
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/httpx.Response'
+            - properties:
+                data:
+                  properties:
+                    permissions:
+                      items:
+                        $ref: '#/definitions/rbac.Permission'
+                      type: array
+                  type: object
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            allOf:
+            - $ref: '#/definitions/httpx.Response'
+            - properties:
+                error:
+                  $ref: '#/definitions/httpx.ErrorResponse'
+              type: object
+      summary: List permissions
+      tags:
+      - rbac
+    post:
+      consumes:
+      - application/json
+      description: Create a new RBAC permission for the client
+      parameters:
+      - description: Permission creation payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/rbac.CreatePermissionRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/httpx.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/rbac.Permission'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            allOf:
+            - $ref: '#/definitions/httpx.Response'
+            - properties:
+                error:
+                  $ref: '#/definitions/httpx.ErrorResponse'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            allOf:
+            - $ref: '#/definitions/httpx.Response'
+            - properties:
+                error:
+                  $ref: '#/definitions/httpx.ErrorResponse'
+              type: object
+      summary: Create permission
+      tags:
+      - rbac
+  /api/v1/m2m/rbac/permissions/{id}:
+    delete:
+      description: Delete a permission by ID
+      parameters:
+      - description: Permission ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            allOf:
+            - $ref: '#/definitions/httpx.Response'
+            - properties:
+                error:
+                  $ref: '#/definitions/httpx.ErrorResponse'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            allOf:
+            - $ref: '#/definitions/httpx.Response'
+            - properties:
+                error:
+                  $ref: '#/definitions/httpx.ErrorResponse'
+              type: object
+      summary: Delete permission
+      tags:
+      - rbac
+    get:
+      description: Get a permission by ID
+      parameters:
+      - description: Permission ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/httpx.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/rbac.Permission'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            allOf:
+            - $ref: '#/definitions/httpx.Response'
+            - properties:
+                error:
+                  $ref: '#/definitions/httpx.ErrorResponse'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            allOf:
+            - $ref: '#/definitions/httpx.Response'
+            - properties:
+                error:
+                  $ref: '#/definitions/httpx.ErrorResponse'
+              type: object
+        "404":
+          description: Not Found
+          schema:
+            allOf:
+            - $ref: '#/definitions/httpx.Response'
+            - properties:
+                error:
+                  $ref: '#/definitions/httpx.ErrorResponse'
+              type: object
+      summary: Get permission
+      tags:
+      - rbac
+    put:
+      consumes:
+      - application/json
+      description: Update a permission's attributes
+      parameters:
+      - description: Permission ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Update payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/rbac.UpdatePermissionRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/httpx.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/rbac.Permission'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            allOf:
+            - $ref: '#/definitions/httpx.Response'
+            - properties:
+                error:
+                  $ref: '#/definitions/httpx.ErrorResponse'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            allOf:
+            - $ref: '#/definitions/httpx.Response'
+            - properties:
+                error:
+                  $ref: '#/definitions/httpx.ErrorResponse'
+              type: object
+      summary: Update permission
+      tags:
+      - rbac
+  /api/v1/m2m/rbac/users/assign:
+    post:
+      consumes:
+      - application/json
+      description: Assign a permission group to a user by email
+      parameters:
+      - description: Assign payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/rbac.AssignUserGroupRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/httpx.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/rbac.AssignUserGroupResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            allOf:
+            - $ref: '#/definitions/httpx.Response'
+            - properties:
+                error:
+                  $ref: '#/definitions/httpx.ErrorResponse'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            allOf:
+            - $ref: '#/definitions/httpx.Response'
+            - properties:
+                error:
+                  $ref: '#/definitions/httpx.ErrorResponse'
+              type: object
+      summary: Assign user group
+      tags:
+      - rbac
+  /api/v1/m2m/rbac/users/permissions:
+    get:
+      description: Get effective permissions for a user by email
+      parameters:
+      - description: User Email
+        in: query
+        name: email
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/httpx.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/rbac.UserPermissionsResult'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            allOf:
+            - $ref: '#/definitions/httpx.Response'
+            - properties:
+                error:
+                  $ref: '#/definitions/httpx.ErrorResponse'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            allOf:
+            - $ref: '#/definitions/httpx.Response'
+            - properties:
+                error:
+                  $ref: '#/definitions/httpx.ErrorResponse'
+              type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            allOf:
+            - $ref: '#/definitions/httpx.Response'
+            - properties:
+                error:
+                  $ref: '#/definitions/httpx.ErrorResponse'
+              type: object
+      summary: Get user permissions
+      tags:
+      - rbac
+  /api/v1/m2m/rbac/users/unassign:
+    post:
+      consumes:
+      - application/json
+      description: Remove a permission group assignment from a user
+      parameters:
+      - description: Unassign payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/rbac.UnassignUserGroupRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/httpx.Response'
+            - properties:
+                data:
+                  properties:
+                    email:
+                      type: string
+                    status:
+                      type: string
+                  type: object
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            allOf:
+            - $ref: '#/definitions/httpx.Response'
+            - properties:
+                error:
+                  $ref: '#/definitions/httpx.ErrorResponse'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            allOf:
+            - $ref: '#/definitions/httpx.Response'
+            - properties:
+                error:
+                  $ref: '#/definitions/httpx.ErrorResponse'
+              type: object
+      summary: Unassign user group
+      tags:
+      - rbac
   /auth/email/resend:
     post:
       consumes:

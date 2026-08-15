@@ -1,6 +1,8 @@
 package ctxkeys
 
 const (
-	UserIDKey    = "userID"
+	UserIDKey   = "userID"
 	SessionIDKey = "sessionID"
+	ClientIDKey  = "clientID"
 )
+

@@ -1,10 +1,13 @@
 package clients
 
-import "github.com/gin-gonic/gin"
+import (
+	"github.com/gin-gonic/gin"
+)
 
-func RegisterRoutes(r *gin.Engine, handler *Handler, authMiddleware gin.HandlerFunc) {
+func RegisterRoutes(r *gin.Engine, handler *Handler, authMiddleware, rlUser, rlIP gin.HandlerFunc) {
 	group := r.Group("/clients")
 	group.Use(authMiddleware)
+	group.Use(rlUser, rlIP)
 
 	group.POST("", handler.CreateClient)
 	group.GET("", handler.ListClients)

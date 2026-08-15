@@ -1,35 +1,69 @@
 package middleware
 
 import (
+	"bytes"
+	"encoding/json"
+	"io"
+	"math"
 	"net/http"
 	"sync"
 	"time"
 
+	"kael/internal/ctxkeys"
 	"kael/internal/httpx"
 
 	"github.com/gin-gonic/gin"
-	"go.uber.org/ratelimit"
 )
 
-// limiterEntry holds a per-IP leaky-bucket limiter and the time it was last used.
+// KeyExtractor defines a function that extracts a rate limiting key from the context.
+// It returns the key and a boolean indicating if the key was found.
+type KeyExtractor func(c *gin.Context) (string, bool)
+
+// TokenBucket implements a leaky/token bucket rate limiter.
+type TokenBucket struct {
+	tokens     float64
+	capacity   float64
+	refillRate float64 // tokens per second
+	lastRefill time.Time
+	mu         sync.Mutex
+}
+
+// Take attempts to take a token from the bucket. Returns true if successful.
+func (tb *TokenBucket) Take() bool {
+	tb.mu.Lock()
+	defer tb.mu.Unlock()
+
+	now := time.Now()
+	elapsed := now.Sub(tb.lastRefill).Seconds()
+
+	tb.tokens = math.Min(tb.capacity, tb.tokens+(elapsed*tb.refillRate))
+	tb.lastRefill = now
+
+	if tb.tokens >= 1.0 {
+		tb.tokens -= 1.0
+		return true
+	}
+	return false
+}
+
 type limiterEntry struct {
-	rl       ratelimit.Limiter
+	bucket   *TokenBucket
 	lastUsed time.Time
 }
 
-// limiterStore manages per-IP limiters for a single route bucket.
 type limiterStore struct {
-	mu      sync.Mutex
-	entries map[string]*limiterEntry
-	rps     int // requests per second derived from (limit / window)
+	mu       sync.Mutex
+	entries  map[string]*limiterEntry
+	capacity float64
+	rate     float64
 }
 
-func newLimiterStore(rps int) *limiterStore {
+func newLimiterStore(capacity, rate float64) *limiterStore {
 	s := &limiterStore{
-		entries: make(map[string]*limiterEntry),
-		rps:     rps,
+		entries:  make(map[string]*limiterEntry),
+		capacity: capacity,
+		rate:     rate,
 	}
-	// Background goroutine to evict idle limiters older than 5 minutes.
 	go func() {
 		ticker := time.NewTicker(2 * time.Minute)
 		defer ticker.Stop()
@@ -40,84 +74,151 @@ func newLimiterStore(rps int) *limiterStore {
 	return s
 }
 
-func (s *limiterStore) take(ip string) {
+func (s *limiterStore) take(key string) bool {
 	s.mu.Lock()
-	entry, ok := s.entries[ip]
+	entry, ok := s.entries[key]
 	if !ok {
 		entry = &limiterEntry{
-			rl: ratelimit.New(s.rps),
+			bucket: &TokenBucket{
+				tokens:     s.capacity,
+				capacity:   s.capacity,
+				refillRate: s.rate,
+				lastRefill: time.Now(),
+			},
 		}
-		s.entries[ip] = entry
+		s.entries[key] = entry
 	}
 	entry.lastUsed = time.Now()
-	rl := entry.rl
+	bucket := entry.bucket
 	s.mu.Unlock()
 
-	rl.Take() // blocks briefly to enforce the rate
+	return bucket.Take()
 }
 
 func (s *limiterStore) evict(idleTimeout time.Duration) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	cutoff := time.Now().Add(-idleTimeout)
-	for ip, e := range s.entries {
+	for k, e := range s.entries {
 		if e.lastUsed.Before(cutoff) {
-			delete(s.entries, ip)
+			delete(s.entries, k)
 		}
 	}
 }
 
-// stores is the global registry of named limiter buckets.
 var (
 	storesMu sync.Mutex
 	stores   = make(map[string]*limiterStore)
 )
 
-func getStore(name string, rps int) *limiterStore {
+func getStore(name string, capacity, rate float64) *limiterStore {
 	storesMu.Lock()
 	defer storesMu.Unlock()
 	if s, ok := stores[name]; ok {
 		return s
 	}
-	s := newLimiterStore(rps)
+	s := newLimiterStore(capacity, rate)
 	stores[name] = s
 	return s
 }
 
-// RateLimit returns a Gin middleware that enforces a leaky-bucket rate limit
-// per client IP. limit/window is converted to an approximate RPS value.
-// If limit <= 0 the middleware is a no-op.
-//
-// Example: RateLimit("rl:login", 20, time.Minute)  →  ~0.33 rps per IP
-func RateLimit(name string, limit int, window time.Duration) gin.HandlerFunc {
+// ExtractIP extracts the client IP address.
+func ExtractIP() KeyExtractor {
+	return func(c *gin.Context) (string, bool) {
+		return "ip:" + c.ClientIP(), true
+	}
+}
+
+// ExtractEmail extracts the email from the JSON request body.
+func ExtractEmail() KeyExtractor {
+	return func(c *gin.Context) (string, bool) {
+		if c.Request.Body == nil {
+			return "", false
+		}
+		bodyBytes, err := io.ReadAll(c.Request.Body)
+		if err != nil {
+			return "", false
+		}
+		// Restore body
+		c.Request.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
+
+		var payload struct {
+			Email string `json:"email"`
+		}
+		if err := json.Unmarshal(bodyBytes, &payload); err == nil && payload.Email != "" {
+			return "email:" + payload.Email, true
+		}
+		return "", false
+	}
+}
+
+// ExtractClientID extracts the client ID from Context or JSON body.
+func ExtractClientID() KeyExtractor {
+	return func(c *gin.Context) (string, bool) {
+		if val, exists := c.Get(ctxkeys.ClientIDKey); exists {
+			return "client:" + val.(string), true
+		}
+		
+		if c.Request.Body != nil {
+			bodyBytes, err := io.ReadAll(c.Request.Body)
+			if err == nil {
+				c.Request.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
+				var payload struct {
+					ClientID string `json:"client_id"`
+				}
+				if err := json.Unmarshal(bodyBytes, &payload); err == nil && payload.ClientID != "" {
+					return "client:" + payload.ClientID, true
+				}
+			}
+		}
+		return "", false
+	}
+}
+
+// ExtractUser extracts the User ID from the context.
+func ExtractUser() KeyExtractor {
+	return func(c *gin.Context) (string, bool) {
+		if val, exists := c.Get(ctxkeys.UserIDKey); exists {
+			return "user:" + val.(string), true
+		}
+		return "", false
+	}
+}
+
+// RateLimit returns a Gin middleware that enforces a token bucket rate limit.
+// It uses the provided KeyExtractors to determine the key (e.g., email, IP).
+// The first extractor to return a key is used. If none return a key, it falls back to IP.
+// limit is the maximum burst capacity, window is the time frame for `limit` tokens to be refilled.
+func RateLimit(name string, limit int, window time.Duration, extractors ...KeyExtractor) gin.HandlerFunc {
 	if limit <= 0 || window <= 0 {
 		return func(c *gin.Context) { c.Next() }
 	}
 
-	// Convert limit-per-window to requests-per-second (minimum 1).
-	rps := int(float64(limit) / window.Seconds())
-	if rps < 1 {
-		rps = 1
-	}
-
-	store := getStore(name, rps)
+	capacity := float64(limit)
+	rate := float64(limit) / window.Seconds()
+	store := getStore(name, capacity, rate)
 
 	return func(c *gin.Context) {
-		ip := c.ClientIP()
+		var key string
+		found := false
+		
+		for _, ext := range extractors {
+			if k, ok := ext(c); ok {
+				key = k
+				found = true
+				break
+			}
+		}
 
-		done := make(chan struct{})
-		go func() {
-			store.take(ip)
-			close(done)
-		}()
+		if !found {
+			key = "ip:" + c.ClientIP()
+		}
 
-		select {
-		case <-done:
-			c.Next()
-		case <-time.After(3 * time.Second):
-			// Caller waited too long — return 429 rather than blocking indefinitely.
+		if !store.take(key) {
 			httpx.RespondError(c, http.StatusTooManyRequests, "rate_limited", "too many requests, please slow down", nil)
 			c.Abort()
+			return
 		}
+		c.Next()
 	}
 }

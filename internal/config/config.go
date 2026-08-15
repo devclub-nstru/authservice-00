@@ -55,9 +55,16 @@ type Config struct {
 	EmailOTPTTL       time.Duration
 	TOTPEncryptionKey string
 
-	AuthRateLimitPerMinute  int
-	LoginRateLimitPerMinute int
-	MfaRateLimitPerMinute   int
+	AuthRateLimitPerMinute          int
+	LoginRateLimitPerMinute         int
+	MfaRateLimitPerMinute           int
+	PasswordResetRateLimitPerMinute int
+	OAuthRateLimitPerMinute         int
+	ClientRateLimitPerMinute        int
+	OIDCRateLimitPerMinute          int
+	RBACRateLimitPerMinute          int
+	SessionRateLimitPerMinute       int
+
 	AsynqWorkerConcurrency  int
 
 	OIDCPrivateKeyPath  string
@@ -118,9 +125,16 @@ func Load() (*Config, error) {
 		EmailOTPTTL:       getDuration("EMAIL_OTP_TTL", 10*time.Minute),
 		TOTPEncryptionKey: getString("TOTP_ENCRYPTION_KEY", ""),
 
-		AuthRateLimitPerMinute:  getInt("AUTH_RATE_LIMIT_PER_MINUTE", 120),
-		LoginRateLimitPerMinute: getInt("LOGIN_RATE_LIMIT_PER_MINUTE", 20),
-		MfaRateLimitPerMinute:   getInt("MFA_RATE_LIMIT_PER_MINUTE", 30),
+		AuthRateLimitPerMinute:          getInt("AUTH_RATE_LIMIT_PER_MINUTE", 120),
+		LoginRateLimitPerMinute:         getInt("LOGIN_RATE_LIMIT_PER_MINUTE", 20),
+		MfaRateLimitPerMinute:           getInt("MFA_RATE_LIMIT_PER_MINUTE", 30),
+		PasswordResetRateLimitPerMinute: getInt("PASSWORD_RESET_RATE_LIMIT_PER_MINUTE", 5),
+		OAuthRateLimitPerMinute:         getInt("OAUTH_RATE_LIMIT_PER_MINUTE", 60),
+		ClientRateLimitPerMinute:        getInt("CLIENT_RATE_LIMIT_PER_MINUTE", 60),
+		OIDCRateLimitPerMinute:          getInt("OIDC_RATE_LIMIT_PER_MINUTE", 60),
+		RBACRateLimitPerMinute:          getInt("RBAC_RATE_LIMIT_PER_MINUTE", 100),
+		SessionRateLimitPerMinute:       getInt("SESSION_RATE_LIMIT_PER_MINUTE", 30),
+
 		AsynqWorkerConcurrency:  getInt("ASYNQ_WORKER_CONCURRENCY", 10),
 
 		OIDCPrivateKeyPath:  getString("OIDC_PRIVATE_KEY_PATH", ".keys/oidc_private.pem"),
